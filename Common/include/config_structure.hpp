@@ -703,6 +703,7 @@ private:
   unsigned short Analytical_Surface;	/*!< \brief Information about the analytical definition of the surface for grid adaptation. */
   unsigned short Geo_Description;	/*!< \brief Description of the geometry. */
   unsigned short Mesh_FileFormat;	/*!< \brief Mesh input format. */
+  unsigned short LongtimeWindow;        /*!< \brief Windowing function for long time Windowing. */
   unsigned short Output_FileFormat;	/*!< \brief Format of the output files. */
   unsigned short ActDisk_Jump;	/*!< \brief Format of the output files. */
   bool CFL_Adapt;      /*!< \brief Adaptive CFL number. */
@@ -5337,6 +5338,14 @@ public:
    */
   unsigned short GetOutput_FileFormat(void);
   
+  /*!
+   * \brief Get the Name of the windowing funtction used for
+   *        long time windowing in sensitivity analysis with
+   *        limit cycle oscillations
+   * \return
+   */
+  unsigned short GetLongtimeWindow(void);
+
   /*!
    * \brief Get the format of the output solution.
    * \return Format of the output solution.

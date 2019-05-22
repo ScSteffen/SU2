@@ -1571,6 +1571,20 @@ static const map<string, ENUM_OUTPUT> Output_Map = CCreateMap<string, ENUM_OUTPU
 ("PARAVIEW_BINARY", PARAVIEW_BINARY);
 
 /*!
+ * \brief selection for long time windows
+ */
+enum ENUM_LONGTIME_WINDOW {
+  HANN = 1,  		     /*!< \brief Hann window. */
+  HANN_SQUARED = 2,          /*!< \brief Hann-Squared window. */
+  BUMP = 3,  		     /*!< \brief Bump window. */
+};
+
+static const map<string, ENUM_LONGTIME_WINDOW> LontimeWindow_Map = CCreateMap<string, ENUM_LONGTIME_WINDOW>
+("HANN", HANN)
+("HANN_SQUARED", HANN_SQUARED)
+("BUMP", BUMP);
+
+/*!
  * \brief type of volume sensitivity file formats (inout to SU2_DOT)
  */
 enum ENUM_SENSITIVITY {

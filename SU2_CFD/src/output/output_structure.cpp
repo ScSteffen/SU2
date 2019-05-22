@@ -5924,6 +5924,7 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     if (currentField.FieldType == TYPE_COEFFICIENT){
       if(SetUpdate_Averages(config)){
         SetHistoryOutputValue("TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
+        //SetHistoryOutputValue("WND_TAVG" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(currentField.Value,config->GetMax_Time(),config->getLongtimeWindow()));
       }
       if (config->GetDirectDiff() != NO_DERIVATIVE){
         SetHistoryOutputValue("D_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(currentField.Value));      
@@ -5955,6 +5956,7 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
       AddHistoryOutput("TAVG_"   + HistoryOutput_List[iField], "tavg["  + currentField.FieldName + "]", currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
       AddHistoryOutput("D_"      + HistoryOutput_List[iField], "d["     + currentField.FieldName + "]", currentField.ScreenFormat, "D_"      + currentField.OutputGroup);  
       AddHistoryOutput("D_TAVG_" + HistoryOutput_List[iField], "dtavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);  
+      //RunningAverages[HistoryOutput_List[iField]] = Signal_Processing::RunningAverage(config->GetMax_Time()); //NOCOMMIT
     }
   }
   

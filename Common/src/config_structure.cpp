@@ -1634,6 +1634,8 @@ void CConfig::SetConfig_Options() {
 
   /*!\brief OUTPUT_FORMAT \n DESCRIPTION: I/O format for output plots. \n OPTIONS: see \link Output_Map \endlink \n DEFAULT: TECPLOT \ingroup Config */
   addEnumOption("OUTPUT_FORMAT", Output_FileFormat, Output_Map, TECPLOT);
+  /*!\brief LONGTIME_WINDOW \n DESCRIPTION: Selection for long time windows for weighted output. */
+  addEnumOption("LONGTIME_WINDOW",LongtimeWindow, LontimeWindow_Map, HANN);
   /*!\brief ACTDISK_JUMP \n DESCRIPTION: The jump is given by the difference in values or a ratio */
   addEnumOption("ACTDISK_JUMP", ActDisk_Jump, Jump_Map, DIFFERENCE);
   /*!\brief MESH_FORMAT \n DESCRIPTION: Mesh input file format \n OPTIONS: see \link Input_Map \endlink \n DEFAULT: SU2 \ingroup Config*/

@@ -1451,6 +1451,8 @@ inline unsigned short CConfig::GetMesh_FileFormat(void) { return Mesh_FileFormat
 
 inline unsigned short CConfig::GetOutput_FileFormat(void) { return Output_FileFormat; }
 
+inline unsigned short CConfig::GetLongtimeWindow(void){ return LongtimeWindow;}
+
 inline unsigned short CConfig::GetActDisk_Jump(void) { return ActDisk_Jump; }
 
 inline string CConfig::GetConv_FileName(void) { return Conv_FileName; }
