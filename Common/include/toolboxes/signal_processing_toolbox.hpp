@@ -9,7 +9,7 @@ namespace Signal_Processing {
   su2double Average(std::vector<su2double> &data);
   
   class RunningAverage{
-  private:
+  protected:
     su2double val;
     unsigned long count;
 
@@ -17,54 +17,14 @@ namespace Signal_Processing {
     RunningAverage(){
       this->Reset();
     }
+    virtual ~RunningAverage(){}
  
-    su2double Update(su2double valIn){ //su2double Signal_Processing::RunningAverage::Update(su2double valIn)
+    virtual su2double Update(su2double valIn){ //su2double Signal_Processing::RunningAverage::Update(su2double valIn)
       su2double scaling = 1. / (su2double)(count + 1);
       val = valIn * scaling + val * (1. - scaling);
       count++;
       return val;
     }
-
-    su2double WindowedUpdate(su2double valIn, su2double endTime, int functionIndex){
-        switch (functionIndex){
-          case 0: valIn = valIn*HannWindow(endTime);
-                break;
-          case 1: valIn = valIn*HannSquaredWindow(endTime);
-                break;
-          case 2: valIn = valIn*BumpWindow(endTime);
-            break;
-          default: break;
-        }
-
-        su2double scaling = 1. / (su2double)(count + 1);
-        val = valIn * scaling + val * (1. - scaling);
-        count++;
-        return val;
-      }
-
-    su2double HannWindow(su2double endTime){
-      return 1-cos(2*PI_NUMBER*(count+1)/endTime);
-    }
-
-
-    su2double HannSquaredWindow(su2double endTime){
-      return 2/3*(1-cos(2*PI_NUMBER*(count+1)/endTime))*(1-cos(2*PI_NUMBER*(count+1)/endTime));
-    }
-
-    su2double BumpWindow(su2double endTime){
-      su2double tau = (count+1)/endTime;
-      return 1/0.00702986*(exp(-1/(tau-tau*tau)));
-    }
-
-    /* TODO, separate into .cpp
-    su2double WindowedUpdate(su2double valIn, su2double endTime, int functionIndex = 0);
-
-    su2double HannWindow(su2double endTime);
-
-    su2double HannSquaredWindow(su2double endTime);
-
-    su2double BumpWindow(su2double endTime);
-    */
 
     su2double Get(){
       return val;
@@ -78,5 +38,70 @@ namespace Signal_Processing {
       val = 0.;
       count = 0;
     }
+  };
+
+  class RunningWindowedAverage:public RunningAverage{
+  private:
+    std::vector<su2double> values;
+    su2double timeStep;
+    int functionIndex;
+
+   public:
+    RunningWindowedAverage(su2double timeStepIn, int functionIndexIn){
+      timeStep = timeStepIn;
+      functionIndex = functionIndexIn;
+    }
+
+    su2double Update(su2double valIn){
+
+      values.push_back(valIn);
+
+      switch (functionIndex){
+        case 0: return HannWindowing();
+        case 1: return HannSquaredWindowing();
+        case 2: return BumpWindowing();
+      }
+
+        return 0;
+      }
+
+    su2double HannWindowing(){
+      su2double wnd_timeAvg = 0.0;
+      for(unsigned i=0; i<count; i++){
+          wnd_timeAvg+=timeStep*values[i]*HannWindow( (su2double)i);
+        }
+      return wnd_timeAvg/(su2double) count;
+    }
+
+    su2double HannSquaredWindowing(){
+      su2double wnd_timeAvg = 0.0;
+      for(unsigned i=0; i<count; i++){
+          wnd_timeAvg+=timeStep*values[i]*HannSquaredWindow( (su2double)i);
+        }
+      return wnd_timeAvg/(su2double) count;
+    }
+
+    su2double BumpWindowing(){
+      su2double wnd_timeAvg = 0.0;
+      for(unsigned i=0; i<count; i++){
+          wnd_timeAvg+=timeStep*values[i]*BumpWindow( (su2double)i);
+        }
+      return wnd_timeAvg/(su2double) count;
+    }
+
+    su2double HannWindow(su2double i){
+      return 1-cos(2*PI_NUMBER*i/(su2double)count);
+    }
+
+
+    su2double HannSquaredWindow(su2double i){
+      return 2/3*(1-cos(2*PI_NUMBER*i/(su2double)count))*(1-cos(2*PI_NUMBER*i/(su2double)count));
+    }
+
+    su2double BumpWindow(su2double i){
+      su2double tau = i/(su2double) count;
+      return 1/0.00702986*(exp(-1/(tau-tau*tau)));
+    }
+
   };
 };

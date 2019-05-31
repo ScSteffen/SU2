@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * \file output_structure.cpp
  * \brief Main subroutines for output solver information
  * \author F. Palacios, T. Economon
@@ -36,6 +36,7 @@
  */
 
 #include "../../include/output/output.hpp"
+#include "../../../Common/include/toolboxes/signal_processing_toolbox.hpp"
 
 COutput::COutput(CConfig *config) {
   
@@ -5470,7 +5471,6 @@ void COutput::SetHistoryFile_Header(CConfig *config) {
   
 }
 
-
 void COutput::SetHistoryFile_Output(CConfig *config) { 
   
   stringstream out;
@@ -5511,7 +5511,6 @@ void COutput::SetScreen_Header(CConfig *config) {
     MultiZoneHeaderTable->PrintHeader();
   ConvergenceTable->PrintHeader();
 }
-
 
 void COutput::SetScreen_Output(CConfig *config) {
   
@@ -5908,7 +5907,7 @@ void COutput::Postprocess_HistoryData(CConfig *config){
    
   map<string, su2double> Average;
   map<string, int> Count;
-  
+
   for (unsigned short iField = 0; iField < HistoryOutput_List.size(); iField++){
     HistoryOutputField &currentField = HistoryOutput_Map[HistoryOutput_List[iField]];
     if (currentField.FieldType == TYPE_RESIDUAL){
@@ -5924,7 +5923,10 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     if (currentField.FieldType == TYPE_COEFFICIENT){
       if(SetUpdate_Averages(config)){
         SetHistoryOutputValue("TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
-        //SetHistoryOutputValue("WND_TAVG" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(currentField.Value,config->GetMax_Time(),config->getLongtimeWindow()));
+        if(RunningAverages.count(HistoryOutput_List[iField]) == 0){
+              RunningAverages[HistoryOutput_List[iField]]  = Signal_Processing::RunningWindowedAverage(config->GetTime_Step(), config->GetLongtimeWindow());;
+           }
+        SetHistoryOutputValue("WND_TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
       }
       if (config->GetDirectDiff() != NO_DERIVATIVE){
         SetHistoryOutputValue("D_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(currentField.Value));      
@@ -5955,8 +5957,8 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
     if (currentField.FieldType == TYPE_COEFFICIENT){
       AddHistoryOutput("TAVG_"   + HistoryOutput_List[iField], "tavg["  + currentField.FieldName + "]", currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
       AddHistoryOutput("D_"      + HistoryOutput_List[iField], "d["     + currentField.FieldName + "]", currentField.ScreenFormat, "D_"      + currentField.OutputGroup);  
-      AddHistoryOutput("D_TAVG_" + HistoryOutput_List[iField], "dtavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);  
-      //RunningAverages[HistoryOutput_List[iField]] = Signal_Processing::RunningAverage(config->GetMax_Time()); //NOCOMMIT
+      AddHistoryOutput("D_TAVG_" + HistoryOutput_List[iField], "dtavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);
+      AddHistoryOutput("WND_TAVG_" + HistoryOutput_List[iField], "wnd_tavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "WND_TAVG_" + currentField.OutputGroup);
     }
   }
   
@@ -5968,7 +5970,7 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
    for (it = Average.begin(); it != Average.end(); it++){
      AddHistoryOutput("AVG_" + it->first, "avg[" + AverageGroupName[it->first] + "]", FORMAT_FIXED, "AVG_RES");
    }
-  
+
 }
 
 bool COutput::WriteScreen_Header(CConfig *config) {  
