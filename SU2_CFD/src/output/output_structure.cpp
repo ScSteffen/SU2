@@ -334,6 +334,7 @@ void COutput::SetMultizoneHistory_Output(COutput **output, CConfig **config, uns
   }
   
 }
+
 void COutput::SetCFL_Number(CSolver *****solver_container, CConfig **config, unsigned short val_iZone) {
   
   su2double CFLFactor = 1.0, power = 1.0, CFL = 0.0, CFLMin = 0.0, CFLMax = 0.0, Div = 1.0, Diff = 0.0, MGFactor[100];
@@ -667,7 +668,6 @@ void COutput::SetVolume_Output(CGeometry *geometry, CConfig *config, unsigned sh
   
 }
 
-
 bool COutput::Convergence_Monitoring(CConfig *config, unsigned long Iteration) {
 
   unsigned short iCounter;
@@ -769,7 +769,6 @@ bool COutput::Convergence_Monitoring(CConfig *config, unsigned long Iteration) {
   return Convergence;
 }
 
-
 void COutput::SortConnectivity(CConfig *config, CGeometry *geometry, bool surf, bool val_sort) {
 
   /*--- Sort connectivity for each type of element (excluding halos). Note
@@ -841,7 +840,6 @@ void COutput::SortConnectivity(CConfig *config, CGeometry *geometry, bool surf, 
     }
   }
 }
-
 
 void COutput::SortVolumetricConnectivity(CConfig *config,
                                          CGeometry *geometry,
@@ -4878,9 +4876,6 @@ void COutput::DeallocateInletCoordinates(CConfig *config, CGeometry *geometry) {
 
 }
 
-
-
-
 void COutput::PrepareOffsets(CConfig *config, CGeometry *geometry) {
 
   unsigned long iPoint;
@@ -5907,7 +5902,6 @@ void COutput::Postprocess_HistoryData(CConfig *config){
    
   map<string, su2double> Average;
   map<string, int> Count;
-
   for (unsigned short iField = 0; iField < HistoryOutput_List.size(); iField++){
     HistoryOutputField &currentField = HistoryOutput_Map[HistoryOutput_List[iField]];
     if (currentField.FieldType == TYPE_RESIDUAL){
@@ -5922,16 +5916,16 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     }
     if (currentField.FieldType == TYPE_COEFFICIENT){
       if(SetUpdate_Averages(config)){
+        /*if(RunningAverages.count(HistoryOutput_List[iField]) == 0){ //Initialize Class only the first time
+              RunningAverages[HistoryOutput_List[iField]]  = Signal_Processing::RunningAverage();
+        } */
         SetHistoryOutputValue("TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
-        if(RunningAverages.count(HistoryOutput_List[iField]) == 0){
-              RunningAverages[HistoryOutput_List[iField]]  = Signal_Processing::RunningWindowedAverage(config->GetTime_Step(), config->GetLongtimeWindow());;
-           }
-        SetHistoryOutputValue("WND_TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
+        SetHistoryOutputValue("WND_TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(currentField.Value,config->GetTime_Step(), config->GetLongtimeWindow()));
       }
       if (config->GetDirectDiff() != NO_DERIVATIVE){
         SetHistoryOutputValue("D_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(currentField.Value));      
-        SetHistoryOutputValue("D_TAVG_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].Get()));
-        
+        SetHistoryOutputValue("D_TAVG_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetVal()));
+        SetHistoryOutputValue("D_WND_TAVG_" + HistoryOutput_List[iField],  SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal()));
       }
     }
   }
@@ -5955,10 +5949,11 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
       Average[currentField.OutputGroup] = true;
     }
     if (currentField.FieldType == TYPE_COEFFICIENT){
-      AddHistoryOutput("TAVG_"   + HistoryOutput_List[iField], "tavg["  + currentField.FieldName + "]", currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
-      AddHistoryOutput("D_"      + HistoryOutput_List[iField], "d["     + currentField.FieldName + "]", currentField.ScreenFormat, "D_"      + currentField.OutputGroup);  
-      AddHistoryOutput("D_TAVG_" + HistoryOutput_List[iField], "dtavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);
-      AddHistoryOutput("WND_TAVG_" + HistoryOutput_List[iField], "wnd_tavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "WND_TAVG_" + currentField.OutputGroup);
+      AddHistoryOutput("TAVG_"     + HistoryOutput_List[iField]  , "tavg["  + currentField.FieldName + "]"     , currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
+      AddHistoryOutput("D_"        + HistoryOutput_List[iField]  , "d["     + currentField.FieldName + "]"     , currentField.ScreenFormat, "D_"      + currentField.OutputGroup);
+      AddHistoryOutput("D_TAVG_"   + HistoryOutput_List[iField]  , "dtavg[" + currentField.FieldName + "]"     , currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);
+      AddHistoryOutput("WND_TAVG_" + HistoryOutput_List[iField]  , "wnd_tavg[" + currentField.FieldName + "]"  , currentField.ScreenFormat, "WND_TAVG_" + currentField.OutputGroup);
+      AddHistoryOutput("D_WND_TAVG_" + HistoryOutput_List[iField], "d_wnd_tavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_WND_TAVG_" + currentField.OutputGroup);
     }
   }
   

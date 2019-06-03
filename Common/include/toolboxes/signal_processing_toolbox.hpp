@@ -9,37 +9,33 @@ namespace Signal_Processing {
   su2double Average(std::vector<su2double> &data);
   
   class RunningAverage{
-  protected:
+  private:
     su2double val;
+    su2double wndVal;
     unsigned long count;
+    std::vector<su2double> values;
+    su2double timeStep;
+    //int functionIndex;
 
   public:
-    RunningAverage(){
-      this->Reset();
-    }
-    virtual ~RunningAverage(){}
- 
-    virtual su2double Update(su2double valIn){ //su2double Signal_Processing::RunningAverage::Update(su2double valIn)
-      su2double scaling = 1. / (su2double)(count + 1);
-      val = valIn * scaling + val * (1. - scaling);
-      count++;
-      return val;
-    }
+    RunningAverage(){  this->Reset();} //timestep and functionIndex only mandatory for windowed averaging
 
-    su2double Get(){
-      return val;
-    }
-  
-    unsigned long Count(){
-      return count;
-    }
-  
-    void Reset(){
-      val = 0.;
-      count = 0;
-    }
+    su2double GetVal();
+    su2double GetWndVal();
+    unsigned long Count();
+    void      Reset();
+    su2double Update(su2double valIn);         //Computes the arithmetic mean over the output values
+    su2double WindowedUpdate(su2double valIn, su2double timeStep, int fctIdx); //Computes a (windowed) time average (integral)
+    su2double NoWindowing();
+    su2double HannWindowing();
+    su2double HannSquaredWindowing();
+    su2double BumpWindowing();
+    su2double HannWindow(su2double i);
+    su2double HannSquaredWindow(su2double i);
+    su2double BumpWindow(su2double i);
   };
 
+  /*
   class RunningWindowedAverage:public RunningAverage{
   private:
     std::vector<su2double> values;
@@ -57,13 +53,22 @@ namespace Signal_Processing {
       values.push_back(valIn);
 
       switch (functionIndex){
-        case 0: return HannWindowing();
-        case 1: return HannSquaredWindowing();
-        case 2: return BumpWindowing();
+        case 1: return HannWindowing();
+        case 2: return HannSquaredWindowing();
+        case 3: return BumpWindowing();
+        default: return NoWindowing();
       }
 
         return 0;
       }
+
+    su2double NoWindowing(){
+      su2double wnd_timeAvg = 0.0;
+      for(unsigned i=0; i<count; i++){
+          wnd_timeAvg+=timeStep*values[i];
+        }
+      return wnd_timeAvg/(su2double) count;
+    }
 
     su2double HannWindowing(){
       su2double wnd_timeAvg = 0.0;
@@ -103,5 +108,5 @@ namespace Signal_Processing {
       return 1/0.00702986*(exp(-1/(tau-tau*tau)));
     }
 
-  };
+  }; */
 };
