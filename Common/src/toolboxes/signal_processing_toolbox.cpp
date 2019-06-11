@@ -13,6 +13,7 @@ su2double Average(std::vector<su2double> &data){
 }
 
 //RunningAverage Members
+/*
 su2double RunningAverage::Update(su2double valIn){ //Computes the arithmetic mean of all values up to count
   su2double scaling = 1. / static_cast<su2double>(count +1);
   val = valIn * scaling + val * (1. - scaling);
@@ -96,3 +97,4 @@ su2double RunningAverage::BumpWindow(su2double i){
   su2double tau = i/static_cast<su2double>(count);
   return 1/0.00702986*(exp(-1/(tau-tau*tau)));
 }
+*/
