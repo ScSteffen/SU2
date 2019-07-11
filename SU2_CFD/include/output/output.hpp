@@ -926,7 +926,7 @@ protected:
    * \param[in] value - The new value of this field.
    */
   inline void SetHistoryOutputValue(string name, su2double value){
-    if (HistoryOutput_Map.count(name) > 0){
+   if (HistoryOutput_Map.count(name) > 0){
       HistoryOutput_Map[name].Value = value;
     } else {
       SU2_MPI::Error(string("Cannot find output field with name ") + name, CURRENT_FUNCTION);

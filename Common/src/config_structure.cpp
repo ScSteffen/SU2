@@ -2359,6 +2359,9 @@ void CConfig::SetConfig_Options() {
   /* DESCRIPTION: Writing surface solution file frequency for dual time */
   addUnsignedLongOption("WRT_SURF_FREQ_DUALTIME", Wrt_Surf_Freq_DualTime, 1);
 
+  /* DESCRIPTION: Starting Iteration for windowing approach */
+  addUnsignedLongOption("START_ITER_WND", StartWindowIteration, 1);
+
   /* DESCRIPTION: DES Constant */
   addDoubleOption("DES_CONST", Const_DES, 0.65);
 

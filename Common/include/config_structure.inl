@@ -1453,6 +1453,8 @@ inline unsigned short CConfig::GetOutput_FileFormat(void) { return Output_FileFo
 
 inline unsigned short CConfig::GetLongtimeWindow(void){ return LongtimeWindow;}
 
+inline unsigned long CConfig::GetStartWindowIteration(void){return StartWindowIteration;}
+
 inline unsigned short CConfig::GetActDisk_Jump(void) { return ActDisk_Jump; }
 
 inline string CConfig::GetConv_FileName(void) { return Conv_FileName; }

@@ -704,6 +704,7 @@ private:
   unsigned short Geo_Description;	/*!< \brief Description of the geometry. */
   unsigned short Mesh_FileFormat;	/*!< \brief Mesh input format. */
   unsigned short LongtimeWindow;        /*!< \brief Windowing function for long time Windowing. */
+  unsigned long StartWindowIteration;  /*!< \brief Starting Iteration for long time Windowing apporach . */
   unsigned short Output_FileFormat;	/*!< \brief Format of the output files. */
   unsigned short ActDisk_Jump;	/*!< \brief Format of the output files. */
   bool CFL_Adapt;      /*!< \brief Adaptive CFL number. */
@@ -5345,6 +5346,14 @@ public:
    * \return
    */
   unsigned short GetLongtimeWindow(void);
+
+
+  /*!
+   * \brief Get the Starting Iteration for the windowing approach
+   *        in Sensitivity Analysis for LCOs.
+   * \return
+   */
+  unsigned long GetStartWindowIteration(void);
 
   /*!
    * \brief Get the format of the output solution.

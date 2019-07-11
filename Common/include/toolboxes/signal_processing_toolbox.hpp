@@ -11,43 +11,31 @@ namespace Signal_Processing {
   class RunningAverage{
   private:
     su2double val;
-    su2double wndVal;
+    su2double hannWndVal,hannSqWndVal,bumpWndVal,noWndAvgVal;
     unsigned long count;
     std::vector<su2double> values;
-    su2double timeStep;
-    //int functionIndex;
 
   public:
     RunningAverage(){  this->Reset();} //timestep and functionIndex only mandatory for windowed averaging
-    /*
-    su2double GetVal();
-    su2double GetWndVal();
-    unsigned long Count();
-    void      Reset();
-    su2double Update(su2double valIn);         //Computes the arithmetic mean over the output values
-    su2double WindowedUpdate(su2double valIn, su2double timeStep, int fctIdx); //Computes a (windowed) time average (integral)
-    su2double NoWindowing();
-    su2double HannWindowing();
-    su2double HannSquaredWindowing();
-    su2double BumpWindowing();
-    su2double HannWindow(su2double i);
-    su2double HannSquaredWindow(su2double i);
-    su2double BumpWindow(su2double i);
-    */
 
     su2double Update(su2double valIn){ //Computes the arithmetic mean of all values up to count
       su2double scaling = 1. / static_cast<su2double>(count +1);
       val = valIn * scaling + val * (1. - scaling);
       count++;
       return val;
-    };
+    }
 
     su2double GetVal(){
       return val;
-    };
+    }
 
-    su2double GetWndVal(){
-      return wndVal;
+    su2double GetWndVal(int fctIdx){
+        switch (fctIdx){
+          case 1: return hannWndVal;
+          case 2: return hannSqWndVal;
+          case 3: return bumpWndVal;
+          default:return noWndAvgVal;
+        }
     }
 
     unsigned long Count(){
@@ -55,143 +43,76 @@ namespace Signal_Processing {
     }
 
     void Reset(){
-      val    = 0.;
-      count  = 0;
-      wndVal = 0.;
+      val         = 0.;
+      count       = 0;
+      hannWndVal  = 0.;
+      hannSqWndVal= 0.;
+      bumpWndVal  = 0.;
+      noWndAvgVal = 0.;
     }
 
-    su2double WindowedUpdate(su2double valIn,su2double timeStepIn, int fctIdx){ //Computes a (windowed) time average (integral)
+    void addValue(su2double valIn, unsigned long currentIter,unsigned long startIter = 0){
+        if(currentIter >= startIter)values.push_back(valIn);
+    }
 
-      values.push_back(valIn);
-      this->timeStep = timeStepIn;
-
-      switch (fctIdx){
-        case 1: wndVal = HannWindowing();        return wndVal;
-        case 2: wndVal = HannSquaredWindowing(); return wndVal;
-        case 3: wndVal = BumpWindowing();        return wndVal;
-        default: wndVal = NoWindowing();         return wndVal;
+    su2double WindowedUpdate(int fctIdx){ //Computes a windowed time average (integral)
+      if(values.size()!=0){
+          switch (fctIdx){
+            case 1: hannWndVal      = HannWindowing();        return hannWndVal;
+            case 2: hannSqWndVal    = HannSquaredWindowing(); return hannSqWndVal;
+            case 3: bumpWndVal      = BumpWindowing();        return bumpWndVal;
+            default: noWndAvgVal    = NoWindowing();          return noWndAvgVal;
+          }
       }
-        return 0;
+        return 0.0;
     }
 
+    //Using Trapezoidal rule
     su2double NoWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i];
+      for(unsigned i=0; i<values.size()-1; i++){
+          wnd_timeAvg+=0.5*(values[i+1]+values[i]);
         }
-      return wnd_timeAvg/static_cast<su2double>(count);
+      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
     }
 
     su2double HannWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*HannWindow( static_cast<su2double>(i));
-        }
-      return wnd_timeAvg/static_cast<su2double>(count);
+      for(unsigned i=0; i<values.size()-1; i++){
+          wnd_timeAvg+=0.5*(values[i+1]*HannWindow(static_cast<su2double>(i+1))+values[i]*HannWindow(static_cast<su2double>(i)));
+      }
+      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
     }
 
     su2double HannSquaredWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*HannSquaredWindow( static_cast<su2double>(i));
+      for(unsigned i=0; i<values.size()-1; i++){
+          wnd_timeAvg+=0.5*(values[i+1]*HannSquaredWindow(static_cast<su2double>(i+1))+values[i]*HannSquaredWindow(static_cast<su2double>(i)));
         }
-      return wnd_timeAvg/static_cast<su2double>(count);
+      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
     }
 
     su2double BumpWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*BumpWindow( static_cast<su2double>(i));
+      for(unsigned i=0; i<values.size()-1; i++){
+          wnd_timeAvg+=0.5*(values[i+1]*BumpWindow(static_cast<su2double>(i+1))+values[i]*BumpWindow(static_cast<su2double>(i)));
         }
-      return wnd_timeAvg/static_cast<su2double>(count);
+      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
     }
 
     su2double HannWindow(su2double i){
-      return 1-cos(2*PI_NUMBER*i/static_cast<su2double>(count));
+      return 1.0-cos(2*PI_NUMBER*i/static_cast<su2double>(values.size()));
     }
 
     su2double HannSquaredWindow(su2double i){
-      return 2/3*(1-cos(2*PI_NUMBER*i/static_cast<su2double>(count)))*(1-cos(2*PI_NUMBER*i/static_cast<su2double>(count)));
+     return 2.0/3.0*(1-cos(2*PI_NUMBER*i/static_cast<su2double>(values.size())))*(1-cos(2*PI_NUMBER*i/static_cast<su2double>(values.size())));
     }
 
     su2double BumpWindow(su2double i){
-      su2double tau = i/static_cast<su2double>(count);
-      return 1/0.00702986*(exp(-1/(tau-tau*tau)));
+      if(i==0.0) return 0;
+      if(i==1.0) return 0;
+      su2double tau = i/static_cast<su2double>(values.size());
+      return 1.0/0.00702986*(exp(-1/(tau-tau*tau)));
     }
   };
-
-  /*
-  class RunningWindowedAverage:public RunningAverage{
-  private:
-    std::vector<su2double> values;
-    su2double timeStep;
-    int functionIndex;
-
-   public:
-    RunningWindowedAverage(su2double timeStepIn, int functionIndexIn){
-      timeStep = timeStepIn;
-      functionIndex = functionIndexIn;
-    }
-
-    su2double Update(su2double valIn){
-
-      values.push_back(valIn);
-
-      switch (functionIndex){
-        case 1: return HannWindowing();
-        case 2: return HannSquaredWindowing();
-        case 3: return BumpWindowing();
-        default: return NoWindowing();
-      }
-
-        return 0;
-      }
-
-    su2double NoWindowing(){
-      su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i];
-        }
-      return wnd_timeAvg/(su2double) count;
-    }
-
-    su2double HannWindowing(){
-      su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*HannWindow( (su2double)i);
-        }
-      return wnd_timeAvg/(su2double) count;
-    }
-
-    su2double HannSquaredWindowing(){
-      su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*HannSquaredWindow( (su2double)i);
-        }
-      return wnd_timeAvg/(su2double) count;
-    }
-
-    su2double BumpWindowing(){
-      su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<count; i++){
-          wnd_timeAvg+=timeStep*values[i]*BumpWindow( (su2double)i);
-        }
-      return wnd_timeAvg/(su2double) count;
-    }
-
-    su2double HannWindow(su2double i){
-      return 1-cos(2*PI_NUMBER*i/(su2double)count);
-    }
-
-
-    su2double HannSquaredWindow(su2double i){
-      return 2/3*(1-cos(2*PI_NUMBER*i/(su2double)count))*(1-cos(2*PI_NUMBER*i/(su2double)count));
-    }
-
-    su2double BumpWindow(su2double i){
-      su2double tau = i/(su2double) count;
-      return 1/0.00702986*(exp(-1/(tau-tau*tau)));
-    }
-
-  }; */
 };
