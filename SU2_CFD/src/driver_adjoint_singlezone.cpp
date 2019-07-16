@@ -293,9 +293,11 @@ void CDiscAdjSinglezoneDriver::SetAdj_ObjFunction(){
   unsigned long ExtIter = config->GetExtIter();
   su2double seeding = 1.0;
 
+  Signal_Processing::RunningAverage windowEvaluate = Signal_Processing::RunningAverage();
+
   if (time_stepping){
     if (ExtIter < IterAvg_Obj){
-      seeding = 1.0/((su2double)IterAvg_Obj);
+      seeding = windowEvaluate.GetWndWeight(config->GetWindowIdx(),ExtIter, static_cast<su2double>(IterAvg_Obj))/ (static_cast<su2double>(IterAvg_Obj));
     }
     else{
       seeding = 0.0;

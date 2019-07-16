@@ -2379,6 +2379,9 @@ void CConfig::SetConfig_Options() {
   /* DESCRIPTION: Starting Iteration for windowing approach */
   addUnsignedLongOption("START_ITER_WND", StartWindowIteration, 1);
 
+  /* DESCRIPTION: Window (weight) function for the cost-functional */
+  addEnumOption("WINDOW_FUNCTION", Type_WindowFct,Window_Map, SQUARED);
+
   /* DESCRIPTION: DES Constant */
   addDoubleOption("DES_CONST", Const_DES, 0.65);
 

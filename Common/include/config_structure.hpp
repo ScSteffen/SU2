@@ -978,6 +978,7 @@ private:
   bool DiscreteAdjoint; /*!< \brief AD-based discrete adjoint mode. */
   unsigned long Wrt_Surf_Freq_DualTime;	/*!< \brief Writing surface solution frequency for Dual Time. */
   su2double Const_DES;   /*!< \brief Detached Eddy Simulation Constant. */
+  unsigned short Type_WindowFct  ;    /*!< \brief Type of window (weight) function for objective functional. */
   unsigned short Kind_HybridRANSLES; /*!< \brief Kind of Hybrid RANS/LES. */
   unsigned short Kind_RoeLowDiss;    /*!< \brief Kind of Roe scheme with low dissipation for unsteady flows. */
   bool QCR;                   /*!< \brief Spalart-Allmaras with Quadratic Constitutive Relation, 2000 version (SA-QCR2000) . */
@@ -5379,6 +5380,13 @@ public:
    * \return
    */
   unsigned long GetStartWindowIteration(void);
+
+
+  /*!
+   * \brief Get Index of the window function used as weight in the cost functional
+   * \return
+   */
+  unsigned short GetWindowIdx(void);
 
   /*!
    * \brief Get the format of the output solution.
