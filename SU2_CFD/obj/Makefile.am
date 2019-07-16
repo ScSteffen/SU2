@@ -59,7 +59,6 @@ noinst_LIBRARIES+= libSU2Core_AD.a
 endif
 
 libSU2Core_sources = \
-  ../include/data_manufactured_solutions.hpp \
   ../include/definition_structure.hpp \
   ../include/fluid_model.hpp \
   ../include/fluid_model.inl \
@@ -94,11 +93,26 @@ libSU2Core_sources = \
   ../include/task_definition.inl \
   ../include/transport_model.hpp \
   ../include/transport_model.inl \
-  ../include/variable_structure.hpp \
-  ../include/variable_structure.inl \
+  ../src/variables/CFEABoundVariable.hpp \
+  ../src/variables/CHeatFVMVariable.hpp \
+  ../src/variables/CVariable.hpp \
+  ../src/variables/CAdjNSVariable.hpp \
+  ../src/variables/CTurbSSTVariable.hpp \
+  ../src/variables/CAdjTurbVariable.hpp \
+  ../src/variables/CTransLMVariable.hpp \
+  ../src/variables/CDiscAdjFEAVariable.hpp \
+  ../src/variables/CIncEulerVariable.hpp \
+  ../src/variables/CTurbVariable.hpp \
+  ../src/variables/CNSVariable.hpp \
+  ../src/variables/CBaselineVariable.hpp \
+  ../src/variables/CTurbSAVariable.hpp \
+  ../src/variables/CFEAVariable.hpp \
+  ../src/variables/CAdjEulerVariable.hpp \
+  ../src/variables/CDiscAdjVariable.hpp \
+  ../src/variables/CIncNSVariable.hpp \
+  ../src/variables/CEulerVariable.hpp \
   ../include/transfer_structure.hpp \
   ../include/transfer_structure.inl \
-  ../src/data_manufactured_solutions.cpp \
   ../src/definition_structure.cpp \
   ../src/fluid_model.cpp \
   ../src/fluid_model_pig.cpp \
@@ -124,27 +138,35 @@ libSU2Core_sources = \
   ../src/numerics_direct_elasticity.cpp \
   ../src/numerics_structure.cpp \
   ../src/numerics_template.cpp \
-  ../src/output/output_cgns.cpp \
-  ../src/output/output_structure.cpp \
+  ../src/output/filewriter/CCSVFileWriter.cpp \
+  ../src/output/filewriter/CFEMDataSorter.cpp \
+  ../src/output/filewriter/CFVMDataSorter.cpp \
+  ../src/output/filewriter/CParallelDataSorter.cpp \
+  ../src/output/filewriter/CParallelFileWriter.cpp \
+  ../src/output/filewriter/CParaviewBinaryFileWriter.cpp \
+  ../src/output/filewriter/CParaviewFileWriter.cpp \
+  ../src/output/filewriter/CSurfaceFEMDataSorter.cpp \
+  ../src/output/filewriter/CSurfaceFVMDataSorter.cpp \
+  ../src/output/filewriter/CSU2BinaryFileWriter.cpp \
+  ../src/output/filewriter/CSU2FileWriter.cpp \
+  ../src/output/filewriter/CSU2MeshFileWriter.cpp \
+  ../src/output/filewriter/CTecplotFileWriter.cpp \
+  ../src/output/filewriter/CTecplotBinaryFileWriter.cpp \
+  ../src/output/COutput.cpp \
   ../src/output/output_physics.cpp \
-  ../src/output/output_tecplot.cpp \
-  ../src/output/output_fieldview.cpp \
-  ../src/output/output_su2.cpp \
-  ../src/output/output_paraview.cpp \
-  ../src/output/output_csv.cpp \
-  ../src/output/output_mesh.cpp \
-  ../src/output/output_elasticity.cpp \
-  ../src/output/output_flow.cpp \
-  ../src/output/output_flow_comp.cpp \
-  ../src/output/output_flow_comp_fem.cpp \
-  ../src/output/output_flow_inc.cpp \
-  ../src/output/output_heat.cpp \
-  ../src/output/output_baseline.cpp \
-  ../src/output/output_adj_elasticity.cpp \
-  ../src/output/output_adj_heat.cpp \
-  ../src/output/output_adj_flow_comp.cpp \
-  ../src/output/output_adj_flow_inc.cpp \
-  ../src/output/output_driver.cpp \
+  ../src/output/CMeshOutput.cpp \
+  ../src/output/CElasticityOutput.cpp \
+  ../src/output/CFlowOutput.cpp \
+  ../src/output/CFlowCompOutput.cpp \
+  ../src/output/CFlowCompFEMOutput.cpp \
+  ../src/output/CFlowIncOutput.cpp \
+  ../src/output/CHeatOutput.cpp \
+  ../src/output/CBaselineOutput.cpp \
+  ../src/output/CAdjElasticityOutput.cpp \
+  ../src/output/CAdjHeatOutput.cpp \
+  ../src/output/CAdjFlowCompOutput.cpp \
+  ../src/output/CAdjFlowIncOutput.cpp \
+  ../src/output/CDriverOutput.cpp \
   ../src/output/output_structure_legacy.cpp \
   ../src/python_wrapper_structure.cpp \
   ../src/solver_adjoint_mean.cpp \
@@ -163,18 +185,24 @@ libSU2Core_sources = \
   ../src/transfer_physics.cpp \
   ../src/transfer_structure.cpp \
   ../src/transport_model.cpp \
-  ../src/variable_adjoint_mean.cpp \
-  ../src/variable_adjoint_turbulent.cpp \
-  ../src/variable_adjoint_discrete.cpp \
-  ../src/variable_adjoint_elasticity.cpp \
-  ../src/variable_direct_heat.cpp \
-  ../src/variable_direct_mean.cpp \
-  ../src/variable_direct_mean_inc.cpp \
-  ../src/variable_direct_transition.cpp \
-  ../src/variable_direct_turbulent.cpp \
-  ../src/variable_direct_elasticity.cpp \
-  ../src/variable_structure.cpp \
-  ../src/variable_template.cpp
+  ../src/variables/CFEABoundVariable.cpp \
+  ../src/variables/CHeatFVMVariable.cpp \
+  ../src/variables/CVariable.cpp \
+  ../src/variables/CAdjNSVariable.cpp \
+  ../src/variables/CTurbSSTVariable.cpp \
+  ../src/variables/CAdjTurbVariable.cpp \
+  ../src/variables/CTransLMVariable.cpp \
+  ../src/variables/CDiscAdjFEAVariable.cpp \
+  ../src/variables/CIncEulerVariable.cpp \
+  ../src/variables/CTurbVariable.cpp \
+  ../src/variables/CNSVariable.cpp \
+  ../src/variables/CBaselineVariable.cpp \
+  ../src/variables/CTurbSAVariable.cpp \
+  ../src/variables/CFEAVariable.cpp \
+  ../src/variables/CAdjEulerVariable.cpp \
+  ../src/variables/CDiscAdjVariable.cpp \
+  ../src/variables/CIncNSVariable.cpp \
+  ../src/variables/CEulerVariable.cpp
 
 su2_cfd_sources = \
   ../include/SU2_CFD.hpp \

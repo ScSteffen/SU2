@@ -933,7 +933,7 @@ def main():
     uniform_flow.cfg_dir   = "sliding_interface/uniform_flow"
     uniform_flow.cfg_file  = "uniform_NN.cfg"
     uniform_flow.test_iter = 2
-    uniform_flow.test_vals = [2.000000, 0.000000, -0.205134, -13.117827] #last 4 columns
+    uniform_flow.test_vals = [2.000000, 0.000000, -0.205134, -13.253885] #last 4 columns
     uniform_flow.su2_exec  = "SU2_CFD"
     uniform_flow.timeout   = 1600
     uniform_flow.tol       = 0.000001
@@ -946,7 +946,7 @@ def main():
     channel_2D.cfg_dir   = "sliding_interface/channel_2D"
     channel_2D.cfg_file  = "channel_2D_WA.cfg"
     channel_2D.test_iter = 2
-    channel_2D.test_vals = [2.000000, 0.000000, 0.396634, 0.320019, 0.403674] #last 4 columns
+    channel_2D.test_vals = [2.000000, 0.000000, 0.400117, 0.352029, 0.407521] #last 4 columns
     channel_2D.su2_exec  = "SU2_CFD"
     channel_2D.timeout   = 100
     channel_2D.tol       = 0.00001
@@ -972,7 +972,7 @@ def main():
     pipe.cfg_dir   = "sliding_interface/pipe"
     pipe.cfg_file  = "pipe_NN.cfg"
     pipe.test_iter = 2
-    pipe.test_vals = [0.457554, 0.542877, 0.781840, 0.944999] #last 4 columns
+    pipe.test_vals = [0.486616, 0.617750, 0.950973, 1.018949] #last 4 columns
     pipe.su2_exec  = "SU2_CFD"
     pipe.timeout   = 1600
     pipe.tol       = 0.00001
@@ -985,7 +985,7 @@ def main():
     rotating_cylinders.cfg_dir   = "sliding_interface/rotating_cylinders"
     rotating_cylinders.cfg_file  = "rot_cylinders_WA.cfg"
     rotating_cylinders.test_iter = 3
-    rotating_cylinders.test_vals = [3.000000, 0.000000, 0.715494, 1.096497, 1.126065] #last 4 columns
+    rotating_cylinders.test_vals = [3.000000, 0.000000, 0.716122, 1.095620, 1.136611] #last 4 columns
     rotating_cylinders.su2_exec  = "SU2_CFD"
     rotating_cylinders.timeout   = 1600
     rotating_cylinders.tol       = 0.00001
@@ -998,7 +998,7 @@ def main():
     supersonic_vortex_shedding.cfg_dir   = "sliding_interface/supersonic_vortex_shedding"
     supersonic_vortex_shedding.cfg_file  = "sup_vor_shed_WA.cfg"
     supersonic_vortex_shedding.test_iter = 5
-    supersonic_vortex_shedding.test_vals = [5.000000, 0.000000, 1.208747, 1.128612] #last 4 columns
+    supersonic_vortex_shedding.test_vals = [5.000000, 0.000000, 1.208652, 1.128008] #last 4 columns
     supersonic_vortex_shedding.su2_exec  = "SU2_CFD"
     supersonic_vortex_shedding.timeout   = 1600
     supersonic_vortex_shedding.tol       = 0.00001
@@ -1011,7 +1011,7 @@ def main():
     bars_SST_2D.cfg_dir   = "sliding_interface/bars_SST_2D"
     bars_SST_2D.cfg_file  = "bars.cfg"
     bars_SST_2D.test_iter = 13
-    bars_SST_2D.test_vals = [13.000000, -0.722945, -1.612486] #last 3 columns
+    bars_SST_2D.test_vals = [13.000000, -0.720012, -1.607989] #last 3 columns
     bars_SST_2D.su2_exec  = "SU2_CFD"
     bars_SST_2D.timeout   = 1600
     bars_SST_2D.tol       = 0.00001
@@ -1052,13 +1052,24 @@ def main():
     statbeam3d.cfg_file  = "configBeam_3d.cfg"
     statbeam3d.new_output= True
     statbeam3d.test_iter = 0
-    statbeam3d.test_vals = [-8.498274, -8.230638, -8.123824, 6.4095e+04] #last 4 columns
+    statbeam3d.test_vals = [-8.498245, -8.230816, -8.123810, 64095.0] #last 4 columns
     statbeam3d.su2_exec  = "SU2_CFD"
     statbeam3d.timeout   = 1600
     statbeam3d.tol       = 0.00001
     test_list.append(statbeam3d)
 
-    # # Dynamic beam, 2d
+    # Mix elem, 3d beam, Knowles
+    knowlesbeam           = TestCase('mixelemknowles')
+    knowlesbeam.cfg_dir   = "fea_fsi/MixElemsKnowles"
+    knowlesbeam.cfg_file  = "config.cfg"
+    knowlesbeam.test_iter = 0
+    knowlesbeam.test_vals = [-14.51360, -13.57735, -28.12642, 9.7306] #last 4 columns
+    knowlesbeam.su2_exec  = "SU2_CFD"
+    knowlesbeam.timeout   = 1600
+    knowlesbeam.tol       = 0.0001
+    test_list.append(knowlesbeam)
+
+    # Dynamic beam, 2d
     dynbeam2d           = TestCase('dynbeam2d')
     dynbeam2d.cfg_dir   = "fea_fsi/DynBeam_2d"
     dynbeam2d.cfg_file  = "configBeam_2d.cfg"
@@ -1076,7 +1087,7 @@ def main():
     fsi2d.cfg_dir   = "fea_fsi/WallChannel_2d"
     fsi2d.cfg_file  = "configFSI.cfg"
     fsi2d.test_iter = 4
-    fsi2d.test_vals = [4.000000, 0.000000, -3.731033, -5.527944] #last 4 columns
+    fsi2d.test_vals = [4.000000, 0.000000, -3.822809, -4.641487] #last 4 columns
     fsi2d.su2_exec  = "SU2_CFD"
     fsi2d.timeout   = 1600
     fsi2d.multizone = True
@@ -1084,16 +1095,16 @@ def main():
     fsi2d.tol       = 0.00001
     test_list.append(fsi2d)    
 
-    # # FSI, 2D airfoil with RBF interpolation
-    # airfoilRBF           = TestCase('airfoil_fsi_rbf')
-    # airfoilRBF.cfg_dir   = "fea_fsi/Airfoil_RBF"
-    # airfoilRBF.cfg_file  = "config.cfg"
-    # airfoilRBF.test_iter = 50
-    # airfoilRBF.test_vals = [-8.000964, -2.600088, 0.276433, 0.000824] #last 4 columns
-    # airfoilRBF.su2_exec  = "SU2_CFD"
-    # airfoilRBF.timeout   = 1600
-    # airfoilRBF.tol       = 0.00001
-    # test_list.append(airfoilRBF)
+    # FSI, 2D airfoil with RBF interpolation
+    airfoilRBF           = TestCase('airfoil_fsi_rbf')
+    airfoilRBF.cfg_dir   = "fea_fsi/Airfoil_RBF"
+    airfoilRBF.cfg_file  = "config.cfg"
+    airfoilRBF.test_iter = 29
+    airfoilRBF.test_vals = [-13.228126, -3.738614, -11.639760, 1404500.0] #last 4 columns
+    airfoilRBF.su2_exec  = "SU2_CFD"
+    airfoilRBF.timeout   = 1600
+    airfoilRBF.tol       = 0.00001
+    test_list.append(airfoilRBF)
    
     # ##########################
     # ### Zonal multiphysics ###
@@ -1111,6 +1122,76 @@ def main():
     cht_incompressible.tol       = 0.00001
     test_list.append(cht_incompressible)
 
+    ##############################################
+    ### Method of Manufactured Solutions (MMS) ###
+    ##############################################
+
+    # FVM, compressible, laminar N-S
+    mms_fvm_ns           = TestCase('mms_fvm_ns')
+    mms_fvm_ns.cfg_dir   = "mms/fvm_navierstokes"
+    mms_fvm_ns.cfg_file  = "lam_mms_roe.cfg"
+    mms_fvm_ns.test_iter = 20
+    mms_fvm_ns.test_vals = [-2.851428, 2.192348, 0.000000, 0.000000] #last 4 columns
+    mms_fvm_ns.su2_exec  = "SU2_CFD"
+    mms_fvm_ns.timeout   = 1600
+    mms_fvm_ns.tol       = 0.0001
+    test_list.append(mms_fvm_ns)
+    
+    # FVM, incompressible, euler
+    mms_fvm_inc_euler           = TestCase('mms_fvm_inc_euler')
+    mms_fvm_inc_euler.cfg_dir   = "mms/fvm_incomp_euler"
+    mms_fvm_inc_euler.cfg_file  = "inv_mms_jst.cfg"
+    mms_fvm_inc_euler.test_iter = 20
+    mms_fvm_inc_euler.test_vals = [-9.128345, -9.441741, 0.000000, 0.000000] #last 4 columns
+    mms_fvm_inc_euler.su2_exec  = "SU2_CFD"
+    mms_fvm_inc_euler.timeout   = 1600
+    mms_fvm_inc_euler.tol       = 0.0001
+    test_list.append(mms_fvm_inc_euler)
+    
+    # FVM, incompressible, laminar N-S
+    mms_fvm_inc_ns           = TestCase('mms_fvm_inc_ns')
+    mms_fvm_inc_ns.cfg_dir   = "mms/fvm_incomp_navierstokes"
+    mms_fvm_inc_ns.cfg_file  = "lam_mms_fds.cfg"
+    mms_fvm_inc_ns.test_iter = 20
+    mms_fvm_inc_ns.test_vals = [-7.414944, -7.631546, 0.000000, 0.000000] #last 4 columns
+    mms_fvm_inc_ns.su2_exec  = "SU2_CFD"
+    mms_fvm_inc_ns.timeout   = 1600
+    mms_fvm_inc_ns.tol       = 0.0001
+    test_list.append(mms_fvm_inc_ns)
+
+    # DG, compressible, euler
+    ringleb_dg_euler           = TestCase('ringleb_dg_euler')
+    ringleb_dg_euler.cfg_dir   = "mms/dg_ringleb"
+    ringleb_dg_euler.cfg_file  = "ringleb_dg.cfg"
+    ringleb_dg_euler.test_iter = 100
+    ringleb_dg_euler.test_vals = [-5.136652, -4.724941, 0.000000, 0.000000] #last 4 columns
+    ringleb_dg_euler.su2_exec  = "SU2_CFD"
+    ringleb_dg_euler.timeout   = 1600
+    ringleb_dg_euler.tol       = 0.0001
+    test_list.append(ringleb_dg_euler)
+
+    # DG, compressible, laminar N-S
+    mms_dg_ns           = TestCase('mms_dg_ns')
+    mms_dg_ns.cfg_dir   = "mms/dg_navierstokes"
+    mms_dg_ns.cfg_file  = "lam_mms_dg.cfg"
+    mms_dg_ns.test_iter = 100
+    mms_dg_ns.test_vals = [-1.845393, 3.520699, 0.000000, 0.000000] #last 4 columns
+    mms_dg_ns.su2_exec  = "SU2_CFD"
+    mms_dg_ns.timeout   = 1600
+    mms_dg_ns.tol       = 0.0001
+    test_list.append(mms_dg_ns)
+
+    # DG, compressible, laminar N-S 3D
+    mms_dg_ns_3d           = TestCase('mms_dg_ns_3d')
+    mms_dg_ns_3d.cfg_dir   = "mms/dg_navierstokes_3d"
+    mms_dg_ns_3d.cfg_file  = "lam_mms_dg_3d.cfg"
+    mms_dg_ns_3d.test_iter = 100
+    mms_dg_ns_3d.test_vals = [-0.146826, 5.356413, 0.000000, 0.000000] #last 4 columns
+    mms_dg_ns_3d.su2_exec  = "SU2_CFD"
+    mms_dg_ns_3d.timeout   = 1600
+    mms_dg_ns_3d.tol       = 0.0001
+    test_list.append(mms_dg_ns_3d)
+    
     ######################################
     ### RUN TESTS                      ###
     ######################################  
@@ -1220,7 +1301,7 @@ def main():
     brick_pyra_def.cfg_dir   = "deformation/brick_pyra"
     brick_pyra_def.cfg_file  = "def_brick_pyra.cfg"
     brick_pyra_def.test_iter = 10
-    brick_pyra_def.test_vals = [0.00183115] #residual
+    brick_pyra_def.test_vals = [0.00150063] #residual
     brick_pyra_def.su2_exec  = "SU2_DEF"
     brick_pyra_def.timeout   = 1600
     brick_pyra_def.tol       = 1e-08
@@ -1233,7 +1314,7 @@ def main():
     brick_prism_def.cfg_dir   = "deformation/brick_prism"
     brick_prism_def.cfg_file  = "def_brick_prism.cfg"
     brick_prism_def.test_iter = 10
-    brick_prism_def.test_vals = [5.684440e-03] #residual
+    brick_prism_def.test_vals = [0.00212069] #residual
     brick_prism_def.su2_exec  = "SU2_DEF"
     brick_prism_def.timeout   = 1600
     brick_prism_def.tol       = 1e-08
@@ -1246,7 +1327,7 @@ def main():
     brick_prism_rans_def.cfg_dir   = "deformation/brick_prism_rans"
     brick_prism_rans_def.cfg_file  = "def_brick_prism_rans.cfg"
     brick_prism_rans_def.test_iter = 10
-    brick_prism_rans_def.test_vals = [2.762780e-07] #residual
+    brick_prism_rans_def.test_vals = [4.8066e-08] #residual
     brick_prism_rans_def.su2_exec  = "SU2_DEF"
     brick_prism_rans_def.timeout   = 1600
     brick_prism_rans_def.tol       = 1e-12
@@ -1451,7 +1532,7 @@ def main():
     pywrapper_aeroelastic.su2_exec  = "SU2_CFD.py -f"
     pywrapper_aeroelastic.new_output  = True
     pywrapper_aeroelastic.timeout   = 1600
-    pywrapper_aeroelastic.tol       = 0.000001
+    pywrapper_aeroelastic.tol       = 0.00001
     pywrapper_aeroelastic.unsteady  = True
     test_list.append(pywrapper_aeroelastic)
     pass_list.append(pywrapper_aeroelastic.run_test())

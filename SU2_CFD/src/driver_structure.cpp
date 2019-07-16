@@ -45,7 +45,6 @@
 
 CDriver::CDriver(char* confFile,
                  unsigned short val_nZone,
-                 bool val_periodic,
                  SU2_Comm MPICommunicator):config_file_name(confFile), StartTime(0.0), StopTime(0.0), UsedTime(0.0), ExtIter(0), nZone(val_nZone), StopCalc(false), fsi(false), fem_solver(false) {
 
 
@@ -127,7 +126,7 @@ CDriver::CDriver(char* confFile,
   /*--- Preprocessing of the config and mesh files. In this routine, the config file is read
    and it is determined whether a problem is single physics or multiphysics. . ---*/
 
-  Input_Preprocessing(MPICommunicator, val_periodic);
+  Input_Preprocessing(MPICommunicator);
 
   /*--- Preprocessing of the geometry for all zones. In this routine, the edge-
    based data structure is constructed, i.e. node and cell neighbors are
@@ -216,6 +215,8 @@ CDriver::CDriver(char* confFile,
 
   }
   
+  nDim = geometry_container[ZONE_0][INST_0][MESH_0]->GetnDim();
+
   nDim = geometry_container[ZONE_0][INST_0][MESH_0]->GetnDim();
 
   /*--- If activated by the compile directive, perform a partition analysis. ---*/
@@ -407,7 +408,7 @@ CDriver::CDriver(char* confFile,
       grid_movement[iZone][iInst] = NULL;
 
     if (!fem_solver && (config_container[iZone]->GetGrid_Movement() ||
-                        (config_container[iZone]->GetDirectDiff() == D_DESIGN))) {
+                        (config_container[iZone]->GetDirectDiff() == D_DESIGN)) && !config_container[iZone]->GetSurface_Movement(FLUID_STRUCTURE_STATIC)) {
       if (rank == MASTER_NODE)
         cout << "Setting dynamic mesh structure for zone "<< iZone <<"." << endl;
       for (iInst = 0; iInst < nInst[iZone]; iInst++){
@@ -451,8 +452,7 @@ CDriver::CDriver(char* confFile,
       }
     }
 
-    if (config_container[iZone]->GetSurface_Movement(FLUID_STRUCTURE_STATIC) ||
-        config_container[iZone]->GetSurface_Movement(FLUID_STRUCTURE)){
+    if (config_container[iZone]->GetSurface_Movement(FLUID_STRUCTURE_STATIC)){
       if (rank == MASTER_NODE)
         cout << "Setting moving mesh structure for FSI problems." << endl;
       /*--- Instantiate the container for the grid movement structure ---*/
@@ -484,7 +484,7 @@ CDriver::CDriver(char* confFile,
     for (iZone = 0; iZone < nZone; iZone ++){
       Kind_Grid_Movement = config_container[iZone]->GetKind_GridMovement();
       initStaticMovement = (config_container[iZone]->GetGrid_Movement() && (config_container[iZone]->GetSurface_Movement(MOVING_WALL)
-                            || Kind_Grid_Movement == ROTATING_FRAME || Kind_Grid_Movement == STEADY_TRANSLATION));
+                          || Kind_Grid_Movement == ROTATING_FRAME || Kind_Grid_Movement == STEADY_TRANSLATION));
     }
 
 
@@ -619,7 +619,6 @@ void CDriver::Postprocessing() {
     delete [] ConvHist_file;
     }
   }
-  delete [] ConvHist_file;
 
   if (rank == MASTER_NODE)
     cout << endl <<"------------------------- Solver Postprocessing -------------------------" << endl;
@@ -836,7 +835,7 @@ void CDriver::Postprocessing() {
 }
 
 
-void CDriver::Input_Preprocessing(SU2_Comm MPICommunicator, bool val_periodic) {
+void CDriver::Input_Preprocessing(SU2_Comm MPICommunicator) {
 
   char zone_file_name[MAX_STRING_SIZE];
 
@@ -859,10 +858,10 @@ void CDriver::Input_Preprocessing(SU2_Comm MPICommunicator, bool val_periodic) {
         cout  << endl << "Parsing sub-config file for zone " << iZone << endl;
       }
       strcpy(zone_file_name, driver_config->GetConfigFilename(iZone).c_str());
-      config_container[iZone] = new CConfig(driver_config, zone_file_name, SU2_CFD, iZone, nZone, false);
+      config_container[iZone] = new CConfig(driver_config, zone_file_name, SU2_CFD, iZone, nZone, true);
     }
     else{
-      config_container[iZone] = new CConfig(driver_config, config_file_name, SU2_CFD, iZone, nZone, false);
+      config_container[iZone] = new CConfig(driver_config, config_file_name, SU2_CFD, iZone, nZone, true);
     }
 
     /*--- Set the MPI communicator ---*/
@@ -878,12 +877,10 @@ void CDriver::Input_Preprocessing(SU2_Comm MPICommunicator, bool val_periodic) {
       config_container[iZone]->SetMultizone(driver_config, config_container);
     }
   }
-  
+
   /*--- Definition of the geometry class to store the primal grid in the
  partitioning process. ---*/
 
-  CGeometry **geometry_aux = new CGeometry*[nZone];
-  
   for (iZone = 0; iZone < nZone; iZone++) {
 
     /*--- Determine whether or not the FEM solver is used, which decides the
@@ -902,89 +899,78 @@ void CDriver::Input_Preprocessing(SU2_Comm MPICommunicator, bool val_periodic) {
 
     geometry_container[iZone] = new CGeometry** [nInst[iZone]];
 
-
-    /*--- All ranks process the grid and call ParMETIS for partitioning ---*/
-
-    geometry_aux[iZone] = new CPhysicalGeometry(config_container[iZone], iZone, nZone);
-    
-    nDim = geometry_aux[iZone]->GetnDim();
-    
-    /*--- For the FEM solver with time-accurate local time-stepping, use
-     a dummy solver class to retrieve the initial flow state. ---*/
-
-    CSolver *solver_aux = NULL;
-    if (fem_solver) solver_aux = new CFEM_DG_EulerSolver(config_container[iZone], nDim, MESH_0);      
-
-    /*--- Color the initial grid and set the send-receive domains (ParMETIS) ---*/
-
-    if ( fem_solver ) geometry_aux[iZone]->SetColorFEMGrid_Parallel(config_container[iZone]);
-    else              geometry_aux[iZone]->SetColorGrid_Parallel(config_container[iZone]);
-
     for (iInst = 0; iInst < nInst[iZone]; iInst++){
-      
+
       config_container[iZone]->SetiInst(iInst);
+
+      /*--- Definition of the geometry class to store the primal grid in the
+     partitioning process. ---*/
+
+      CGeometry *geometry_aux = NULL;
       
+      /*--- All ranks process the grid and call ParMETIS for partitioning ---*/
+
+      geometry_aux = new CPhysicalGeometry(config_container[iZone], iZone, nZone);
       
+      /*--- Set the dimension ---*/
+      
+      nDim = geometry_aux->GetnDim();
+
+      /*--- For the FEM solver with time-accurate local time-stepping, use
+       a dummy solver class to retrieve the initial flow state. ---*/
+
+      CSolver *solver_aux = NULL;
+      if (fem_solver) solver_aux = new CFEM_DG_EulerSolver(config_container[iZone], nDim, MESH_0);
+
+      /*--- Color the initial grid and set the send-receive domains (ParMETIS) ---*/
+
+      if ( fem_solver ) geometry_aux->SetColorFEMGrid_Parallel(config_container[iZone]);
+      else              geometry_aux->SetColorGrid_Parallel(config_container[iZone]);
+
       /*--- Allocate the memory of the current domain, and divide the grid
      between the ranks. ---*/
-      
+
       geometry_container[iZone][iInst] = NULL;
       geometry_container[iZone][iInst] = new CGeometry *[config_container[iZone]->GetnMGLevels()+1];
-      
-    }
-    
-    /*--- Deallocate the memory of geometry_aux and solver_aux ---*/
-    
-    if (solver_aux != NULL) delete solver_aux;
-  }
 
-  SetTransferTypes();   
-  
-  for (iZone = 0; iZone < nZone; iZone++) {
-        
-    for (iInst = 0; iInst < nInst[iZone]; iInst++){
-      
-      config_container[iZone]->SetiInst(iInst);
-      
+
       if( fem_solver ) {
         switch( config_container[iZone]->GetKind_FEM_Flow() ) {
-        case DG: {
-          geometry_container[iZone][iInst][MESH_0] = new CMeshFEM_DG(geometry_aux[iZone], config_container[iZone]);
-          break;
-        }
-          
-        default: {
-          SU2_MPI::Error("Unknown FEM flow solver.", CURRENT_FUNCTION);
-          break;
-        }
+          case DG: {
+            geometry_container[iZone][iInst][MESH_0] = new CMeshFEM_DG(geometry_aux, config_container[iZone]);
+            break;
+          }
+
+          default: {
+            SU2_MPI::Error("Unknown FEM flow solver.", CURRENT_FUNCTION);
+            break;
+          }
         }
       }
       else {
 
         /*--- Build the grid data structures using the ParMETIS coloring. ---*/
         
-        geometry_container[iZone][iInst][MESH_0] = new CPhysicalGeometry(geometry_aux[iZone], config_container[iZone]);
+        geometry_container[iZone][iInst][MESH_0] = new CPhysicalGeometry(geometry_aux, config_container[iZone]);
 
       }
-      
 
-      
+      /*--- Deallocate the memory of geometry_aux and solver_aux ---*/
+
+      delete geometry_aux;
+      if (solver_aux != NULL) delete solver_aux;
+
       /*--- Add the Send/Receive boundaries ---*/
       geometry_container[iZone][iInst][MESH_0]->SetSendReceive(config_container[iZone]);
-      
+
       /*--- Add the Send/Receive boundaries ---*/
       geometry_container[iZone][iInst][MESH_0]->SetBoundaries(config_container[iZone]);
-      
-    }
-    
-    delete geometry_aux[iZone];
-    
-  }
- 
-  delete [] geometry_aux;
-  
-}
 
+    }
+
+  }
+
+}
 
 void CDriver::Geometrical_Preprocessing() {
 
@@ -1072,6 +1058,7 @@ void CDriver::Geometrical_Preprocessing() {
       if (rank == MASTER_NODE) cout << "Checking for periodicity." << endl;
       geometry_container[iZone][iInst][MESH_0]->Check_Periodicity(config_container[iZone]);
 
+      geometry_container[iZone][iInst][MESH_0]->SetMGLevel(MESH_0);
       if ((config_container[iZone]->GetnMGLevels() != 0) && (rank == MASTER_NODE))
         cout << "Setting the multigrid structure." << endl;
 
@@ -1113,6 +1100,10 @@ void CDriver::Geometrical_Preprocessing() {
         /*--- Find closest neighbor to a surface point ---*/
 
         geometry_container[iZone][iInst][iMGlevel]->FindNormal_Neighbor(config_container[iZone]);
+
+        /*--- Store our multigrid index. ---*/
+        
+        geometry_container[iZone][iInst][iMGlevel]->SetMGLevel(iMGlevel);
 
         /*--- Protect against the situation that we were not able to complete
        the agglomeration for this level, i.e., there weren't enough points.
@@ -2244,14 +2235,14 @@ void CDriver::Numerics_Preprocessing(CNumerics *****numerics_container,
               }
               break;
 
-	    case AUSMPLUSUP:
+	          case AUSMPLUSUP:
               for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
                 numerics_container[val_iInst][iMGlevel][FLOW_SOL][CONV_TERM] = new CUpwAUSMPLUSUP_Flow(nDim, nVar_Flow, config);
                 numerics_container[val_iInst][iMGlevel][FLOW_SOL][CONV_BOUND_TERM] = new CUpwAUSMPLUSUP_Flow(nDim, nVar_Flow, config);
               }
               break;
 
-	    case AUSMPLUSUP2:
+            case AUSMPLUSUP2:
               for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
                 numerics_container[val_iInst][iMGlevel][FLOW_SOL][CONV_TERM] = new CUpwAUSMPLUSUP2_Flow(nDim, nVar_Flow, config);
                 numerics_container[val_iInst][iMGlevel][FLOW_SOL][CONV_BOUND_TERM] = new CUpwAUSMPLUSUP2_Flow(nDim, nVar_Flow, config);
@@ -2798,14 +2789,12 @@ void CDriver::Numerics_Preprocessing(CNumerics *****numerics_container,
           case NEO_HOOKEAN :
             switch (config->GetMaterialCompressibility()) {
               case COMPRESSIBLE_MAT : numerics_container[val_iInst][MESH_0][FEA_SOL][FEA_TERM] = new CFEM_NeoHookean_Comp(nDim, nVar_FEM, config); break;
-              case INCOMPRESSIBLE_MAT : numerics_container[val_iInst][MESH_0][FEA_SOL][FEA_TERM] = new CFEM_NeoHookean_Incomp(nDim, nVar_FEM, config); break;
               default: SU2_MPI::Error("Material model not implemented.", CURRENT_FUNCTION); break;
             }
             break;
           case KNOWLES:
             switch (config->GetMaterialCompressibility()) {
               case NEARLY_INCOMPRESSIBLE_MAT : numerics_container[val_iInst][MESH_0][FEA_SOL][FEA_TERM] = new CFEM_Knowles_NearInc(nDim, nVar_FEM, config); break;
-              case INCOMPRESSIBLE_MAT : numerics_container[val_iInst][MESH_0][FEA_SOL][FEA_TERM] = new CFEM_Knowles_NearInc(nDim, nVar_FEM, config); break;
               default:  SU2_MPI::Error("Material model not implemented.", CURRENT_FUNCTION); break;
             }
             break;
@@ -2843,7 +2832,6 @@ void CDriver::Numerics_Preprocessing(CNumerics *****numerics_container,
       if (!(properties_file.fail())) {
 
           numerics_container[val_iInst][MESH_0][FEA_SOL][MAT_NHCOMP]  = new CFEM_NeoHookean_Comp(nDim, nVar_FEM, config);
-          numerics_container[val_iInst][MESH_0][FEA_SOL][MAT_NHINC]   = new CFEM_NeoHookean_Incomp(nDim, nVar_FEM, config);
           numerics_container[val_iInst][MESH_0][FEA_SOL][MAT_IDEALDE] = new CFEM_IdealDE(nDim, nVar_FEM, config);
           numerics_container[val_iInst][MESH_0][FEA_SOL][MAT_KNOWLES] = new CFEM_Knowles_NearInc(nDim, nVar_FEM, config);
 
@@ -3260,222 +3248,6 @@ void CDriver::Numerics_Postprocessing(CNumerics *****numerics_container,
 
 }
 
-void CDriver::SetTransferTypes(){
-  
-  unsigned short donorZone, targetZone;
-  unsigned short nMarkerTarget, iMarkerTarget, nMarkerDonor, iMarkerDonor;
-
-  /*--- Initialize some useful booleans ---*/
-  bool fluid_donor, structural_donor, heat_donor;
-  bool fluid_target, structural_target, heat_target;
-
-  bool discrete_adjoint = config_container[ZONE_0]->GetDiscrete_Adjoint();
-
-  int markDonor, markTarget, Donor_check, Target_check, iMarkerInt, nMarkerInt;
-
-#ifdef HAVE_MPI
-  int *Buffer_Recv_mark = NULL, iRank, nProcessor = size;
-
-  if (rank == MASTER_NODE)
-    Buffer_Recv_mark = new int[nProcessor];
-#endif
-  
-  /*--- Coupling between zones ---*/
-  // There's a limit here, the interface boundary must connect only 2 zones
-  
-  /*--- Loops over all target and donor zones to find which ones are connected through an interface boundary (fsi or sliding mesh) ---*/
-  for (targetZone = 0; targetZone < nZone; targetZone++) {
-    for (donorZone = 0; donorZone < nZone; donorZone++) {
-      
-      
-      transfer_types[donorZone][targetZone] = NO_TRANSFER;
-      
-      if ( donorZone == targetZone ) {
-        transfer_types[donorZone][targetZone] = ZONES_ARE_EQUAL;
-        // We're processing the same zone, so skip the following
-        continue;
-      }
-      
-      nMarkerInt = (int) ( config_container[donorZone]->GetMarker_n_ZoneInterface() / 2 );
-      
-      /*--- Loops on Interface markers to find if the 2 zones are sharing the boundary and to determine donor and target marker tag ---*/
-      for (iMarkerInt = 1; iMarkerInt <= nMarkerInt; iMarkerInt++) {
-        
-        markDonor  = -1;
-        markTarget = -1;
-        
-        /*--- On the donor side ---*/
-        nMarkerDonor = config_container[donorZone]->GetnMarker_All();
-        
-        for (iMarkerDonor = 0; iMarkerDonor < nMarkerDonor; iMarkerDonor++) {
-          /*--- If the tag GetMarker_All_ZoneInterface(iMarker) equals the index we are looping at ---*/
-          if ( config_container[donorZone]->GetMarker_All_ZoneInterface(iMarkerDonor) == iMarkerInt ) {
-            /*--- We have identified the identifier for the interface marker ---*/
-            markDonor = iMarkerDonor;
-            
-            break;
-          }
-        }
-        
-        /*--- On the target side ---*/
-        nMarkerTarget = config_container[targetZone]->GetnMarker_All();
-        
-        for (iMarkerTarget = 0; iMarkerTarget < nMarkerTarget; iMarkerTarget++) {
-          
-          /*--- If the tag GetMarker_All_ZoneInterface(iMarker) equals the index we are looping at ---*/
-          if ( config_container[targetZone]->GetMarker_All_ZoneInterface(iMarkerTarget) == iMarkerInt ) {
-            /*--- We have identified the identifier for the interface marker ---*/
-            markTarget = iMarkerTarget;
-            
-            break;
-          } 
-        }
-                
-#ifdef HAVE_MPI
-        
-        Donor_check  = -1;
-        Target_check = -1;
-        
-        /*--- We gather a vector in MASTER_NODE that determines if the boundary is not on the processor because of the partition or because the zone does not include it ---*/
-        
-        SU2_MPI::Gather(&markDonor , 1, MPI_INT, Buffer_Recv_mark, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD);
-        
-        if (rank == MASTER_NODE) {
-          for (iRank = 0; iRank < nProcessor; iRank++) {
-            if( Buffer_Recv_mark[iRank] != -1 ) {
-              Donor_check = Buffer_Recv_mark[iRank];
-              
-              break;
-            }
-          }
-        }
-        
-        SU2_MPI::Bcast(&Donor_check , 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD);
-        
-        SU2_MPI::Gather(&markTarget, 1, MPI_INT, Buffer_Recv_mark, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD);
-        
-        if (rank == MASTER_NODE){
-          for (iRank = 0; iRank < nProcessor; iRank++){
-            if( Buffer_Recv_mark[iRank] != -1 ){
-              Target_check = Buffer_Recv_mark[iRank];
-              
-              break;
-            }
-          }
-        }
-        
-        SU2_MPI::Bcast(&Target_check, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD);
-        
-#else
-        Donor_check  = markDonor;
-        Target_check = markTarget;  
-#endif
-        
-        /* --- Check ifzones are actually sharing the interface boundary, if not skip ---*/        
-        if(Target_check == -1 || Donor_check == -1) {
-          transfer_types[donorZone][targetZone] = NO_COMMON_INTERFACE;
-          continue;
-        }
-        
-        /*--- Set some boolean to properly allocate data structure later ---*/
-        fluid_target      = false; 
-        structural_target = false;
-        
-        fluid_donor       = false; 
-        structural_donor  = false;
-        
-        heat_donor        = false;
-        heat_target       = false;
-        
-        switch ( config_container[targetZone]->GetKind_Solver() ) {
-        
-        case EULER : case NAVIER_STOKES: case RANS: 
-        case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
-          fluid_target  = true;   
-          break;
-          
-        case FEM_ELASTICITY: case DISC_ADJ_FEM:
-          structural_target = true;   
-          break;
-          
-        case HEAT_EQUATION_FVM: case DISC_ADJ_HEAT:
-          heat_target = true;
-          break;
-        }
-        
-        switch ( config_container[donorZone]->GetKind_Solver() ) {
-        
-        case EULER : case NAVIER_STOKES: case RANS:
-        case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
-          fluid_donor  = true;
-          break;
-          
-        case FEM_ELASTICITY: case DISC_ADJ_FEM:
-          structural_donor = true;
-          break;
-          
-        case HEAT_EQUATION_FVM : case DISC_ADJ_HEAT:
-          heat_donor = true;
-          break;
-        }
-        
-        if (fluid_donor && structural_target && (!discrete_adjoint)) {
-          transfer_types[donorZone][targetZone] = FLOW_TRACTION;
-          if (markDonor != -1){
-            config_container[donorZone]->SetSurface_Movement(markDonor, FLUID_STRUCTURE);
-          }
-        }
-        else if (structural_donor && fluid_target && (!discrete_adjoint)) {
-          transfer_types[donorZone][targetZone] = STRUCTURAL_DISPLACEMENTS;
-        }
-        else if (fluid_donor && structural_target && discrete_adjoint) {
-          transfer_types[donorZone][targetZone] = FLOW_TRACTION;
-          if (markDonor != -1){
-            config_container[donorZone]->SetSurface_Movement(markDonor, FLUID_STRUCTURE);
-          }
-        }
-        else if (structural_donor && fluid_target && discrete_adjoint){
-          transfer_types[donorZone][targetZone] = STRUCTURAL_DISPLACEMENTS_DISC_ADJ;
-        }
-        else if (fluid_donor && fluid_target) {
-          transfer_types[donorZone][targetZone] = SLIDING_INTERFACE;
-        }
-        else if (fluid_donor && heat_target) {
-          if(config_container[donorZone]->GetEnergy_Equation())
-            transfer_types[donorZone][targetZone] = CONJUGATE_HEAT_FS;
-          else if (config_container[donorZone]->GetWeakly_Coupled_Heat())
-            transfer_types[donorZone][targetZone] = CONJUGATE_HEAT_WEAKLY_FS;
-          else { }
-        }
-        else if (heat_donor && fluid_target) {
-          if(config_container[targetZone]->GetEnergy_Equation())
-            transfer_types[donorZone][targetZone] = CONJUGATE_HEAT_SF;
-          else if (config_container[targetZone]->GetWeakly_Coupled_Heat())
-            transfer_types[donorZone][targetZone] = CONJUGATE_HEAT_WEAKLY_SF;
-          else { }
-        }
-        else if (heat_donor && heat_target) {
-          SU2_MPI::Error("Conjugate heat transfer between solids not implemented yet.", CURRENT_FUNCTION);
-        }
-        else {
-          transfer_types[donorZone][targetZone] = CONSERVATIVE_VARIABLES;
-        }
-        
-        break;
-        
-      }
-      
-      if (config_container[donorZone]->GetBoolMixingPlaneInterface()){
-        transfer_types[donorZone][targetZone] = MIXING_PLANE;
-      }
-    }
-  }
-#ifdef HAVE_MPI
-      if (rank == MASTER_NODE) 
-        delete [] Buffer_Recv_mark;
-#endif
-}
-
 void CDriver::Iteration_Preprocessing() {
 
   for (iInst = 0; iInst < nInst[iZone]; iInst++)  {
@@ -3816,13 +3588,6 @@ void CDriver::Interface_Preprocessing() {
         nVar = solver_container[donorZone][INST_0][MESH_0][FLOW_SOL]->GetnPrimVar();
         transfer_container[donorZone][targetZone] = new CTransfer_SlidingInterface(nVar, nVarTransfer, config_container[donorZone]);
         if (rank == MASTER_NODE) cout << "sliding interface. " << endl;
-        if (markDonor != -1 ){
-          config_container[donorZone]->SetMarker_All_KindBC(markDonor, FLUID_INTERFACE);          
-          solver_container[donorZone][INST_0][MESH_0][FLOW_SOL]->InitSlidingState(config_container[donorZone], geometry_container[donorZone][INST_0][MESH_0], markDonor);     
-          if (config_container[donorZone]->GetKind_Turb_Model() != NONE){
-            solver_container[donorZone][INST_0][MESH_0][TURB_SOL]->InitSlidingState(config_container[donorZone], geometry_container[donorZone][INST_0][MESH_0], markDonor);               
-          }
-        }
       }
       else if (fluid_donor && heat_target) {
         nVarTransfer = 0;
@@ -3834,9 +3599,6 @@ void CDriver::Interface_Preprocessing() {
         else { }
         transfer_container[donorZone][targetZone] = new CTransfer_ConjugateHeatVars(nVar, nVarTransfer, config_container[donorZone]);
         if (rank == MASTER_NODE) cout << "conjugate heat variables. " << endl;
-        if (markDonor != -1 ){
-          config_container[donorZone]->SetMarker_All_KindBC(markDonor, CHT_WALL_INTERFACE);
-        }
       }
       else if (heat_donor && fluid_target) {
         nVarTransfer = 0;
@@ -3848,9 +3610,6 @@ void CDriver::Interface_Preprocessing() {
         else { }
         transfer_container[donorZone][targetZone] = new CTransfer_ConjugateHeatVars(nVar, nVarTransfer, config_container[donorZone]);
         if (rank == MASTER_NODE) cout << "conjugate heat variables. " << endl;
-        if (markDonor != -1 ){
-          config_container[donorZone]->SetMarker_All_KindBC(markDonor, CHT_WALL_INTERFACE);
-        }
       }
       else if (heat_donor && heat_target) {
         SU2_MPI::Error("Conjugate heat transfer between solids not implemented yet.", CURRENT_FUNCTION);
@@ -3882,69 +3641,60 @@ void CDriver::Interface_Preprocessing() {
   if (rank == MASTER_NODE) 
   delete [] Buffer_Recv_mark;
 #endif
-  
-  /*--- Update boundary information since some kind BCs have changed ---*/
-  
-  for (iZone = 0; iZone < nZone; iZone++){
-    for (unsigned short iMesh = 0; iMesh <= config_container[iZone]->GetnMGLevels(); iMesh++){
-      geometry_container[iZone][INST_0][iMesh]->UpdateBoundaries(config_container[iZone]);
-    }
-  }
-  
 }
 
 void CDriver::InitStaticMeshMovement(){
-
+  
   unsigned short iMGlevel;
   unsigned short Kind_Grid_Movement;
-
+  
   for (iZone = 0; iZone < nZone; iZone++) {
     Kind_Grid_Movement = config_container[iZone]->GetKind_GridMovement();
-
+    
     switch (Kind_Grid_Movement) {
-
-    case ROTATING_FRAME:
-
-      /*--- Steadily rotating frame: set the grid velocities just once
+      
+      case ROTATING_FRAME:
+        
+        /*--- Steadily rotating frame: set the grid velocities just once
          before the first iteration flow solver. ---*/
-
-      if (rank == MASTER_NODE) {
-        cout << endl << " Setting rotating frame grid velocities";
-        cout << " for zone " << iZone << "." << endl;
-      }
-
-      /*--- Set the grid velocities on all multigrid levels for a steadily
+        
+        if (rank == MASTER_NODE) {
+          cout << endl << " Setting rotating frame grid velocities";
+          cout << " for zone " << iZone << "." << endl;
+        }
+        
+        /*--- Set the grid velocities on all multigrid levels for a steadily
            rotating reference frame. ---*/
-
-      for (iMGlevel = 0; iMGlevel <= config_container[ZONE_0]->GetnMGLevels(); iMGlevel++){
-        geometry_container[iZone][INST_0][iMGlevel]->SetRotationalVelocity(config_container[iZone], iZone, true);
-        geometry_container[iZone][INST_0][iMGlevel]->SetShroudVelocity(config_container[iZone]);
-      }
-
-      break;
-
-    case STEADY_TRANSLATION:
-
-      /*--- Set the translational velocity and hold the grid fixed during
+        
+        for (iMGlevel = 0; iMGlevel <= config_container[ZONE_0]->GetnMGLevels(); iMGlevel++){
+          geometry_container[iZone][INST_0][iMGlevel]->SetRotationalVelocity(config_container[iZone], iZone, true);
+          geometry_container[iZone][INST_0][iMGlevel]->SetShroudVelocity(config_container[iZone]);
+        }
+        
+        break;
+        
+      case STEADY_TRANSLATION:
+        
+        /*--- Set the translational velocity and hold the grid fixed during
          the calculation (similar to rotating frame, but there is no extra
          source term for translation). ---*/
-
-      if (rank == MASTER_NODE)
-        cout << endl << " Setting translational grid velocities." << endl;
-
-      /*--- Set the translational velocity on all grid levels. ---*/
-
-      for (iMGlevel = 0; iMGlevel <= config_container[ZONE_0]->GetnMGLevels(); iMGlevel++)
-        geometry_container[iZone][INST_0][iMGlevel]->SetTranslationalVelocity(config_container[iZone], iZone, true);
-
-
-
-      break;
-      
+        
+        if (rank == MASTER_NODE)
+          cout << endl << " Setting translational grid velocities." << endl;
+        
+        /*--- Set the translational velocity on all grid levels. ---*/
+        
+        for (iMGlevel = 0; iMGlevel <= config_container[ZONE_0]->GetnMGLevels(); iMGlevel++)
+          geometry_container[iZone][INST_0][iMGlevel]->SetTranslationalVelocity(config_container[iZone], iZone, true);
+        
+        
+        
+        break;
+        
       default:
         break;
     }
-
+    
     if (config_container[iZone]->GetnMarker_Moving() > 0){
       
       /*--- Fixed wall velocities: set the grid velocities only one time
@@ -4006,7 +3756,7 @@ void CDriver::Output_Preprocessing(){
       if (rank == MASTER_NODE)
         cout << ": adjoint Euler/Navier-Stokes/RANS output structure." << endl;
       if (config_container[iZone]->GetKind_Regime() == COMPRESSIBLE){      
-        output[iZone] = new CAdjFlowOutput(config_container[iZone], geometry_container[iZone][INST_0][MESH_0], iZone);
+        output[iZone] = new CAdjFlowCompOutput(config_container[iZone], geometry_container[iZone][INST_0][MESH_0], iZone);
       } else if (config_container[iZone]->GetKind_Regime() == INCOMPRESSIBLE){
         output[iZone] = new CAdjFlowIncOutput(config_container[iZone], geometry_container[iZone][INST_0][MESH_0], iZone);
       }
@@ -4049,6 +3799,7 @@ void CDriver::Output_Preprocessing(){
   }
   
 }
+
 
 void CDriver::TurbomachineryPreprocessing(){
 
@@ -4235,9 +3986,17 @@ void CDriver::StartSolver(){
 
 void CDriver::PreprocessExtIter(unsigned long ExtIter) {
 
-  /*--- Set the value of the external iteration. ---*/
+  /*--- Set the value of the external iteration and physical time. ---*/
 
-  for (iZone = 0; iZone < nZone; iZone++) config_container[iZone]->SetExtIter(ExtIter);
+  for (iZone = 0; iZone < nZone; iZone++) {
+    config_container[iZone]->SetExtIter(ExtIter);
+  
+    if (config_container[iZone]->GetUnsteady_Simulation())
+      config_container[iZone]->SetPhysicalTime(static_cast<su2double>(ExtIter)*config_container[iZone]->GetDelta_UnstTimeND());
+    else
+      config_container[iZone]->SetPhysicalTime(0.0);
+  
+  }
   
 
 //  /*--- Read the target pressure ---*/
@@ -4484,7 +4243,7 @@ void CDriver::Output(unsigned long ExtIter) {
 
 CDriver::~CDriver(void) {}
 
-CFluidDriver::CFluidDriver(char* confFile, unsigned short val_nZone, bool val_periodic, SU2_Comm MPICommunicator) : CDriver(confFile, val_nZone, val_periodic, MPICommunicator) { }
+CFluidDriver::CFluidDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunicator) : CDriver(confFile, val_nZone, MPICommunicator) { }
 
 CFluidDriver::~CFluidDriver(void) { }
 
@@ -4587,11 +4346,9 @@ void CFluidDriver::DynamicMeshUpdate(unsigned long ExtIter) {
 
 }
 
-CTurbomachineryDriver::CTurbomachineryDriver(char* confFile,
-    unsigned short val_nZone, bool val_periodic, SU2_Comm MPICommunicator) : CFluidDriver(confFile,
-        val_nZone,
-        val_periodic,
-        MPICommunicator) { }
+CTurbomachineryDriver::CTurbomachineryDriver(char* confFile, unsigned short val_nZone,
+                                             SU2_Comm MPICommunicator):
+                                             CFluidDriver(confFile, val_nZone, MPICommunicator) { }
 
 CTurbomachineryDriver::~CTurbomachineryDriver(void) { }
 
@@ -4734,7 +4491,7 @@ bool CTurbomachineryDriver::Monitor(unsigned long ExtIter) {
         rot_z_final = config_container[iZone]->GetFinalRotation_Rate_Z();
         if(abs(rot_z_final) > 0.0){
           rot_z = rot_z_ini + ExtIter*( rot_z_final - rot_z_ini)/finalRamp_Iter;
-          config_container[iZone]->GetRotation_Rate()[2] = rot_z;
+          config_container[iZone]->SetRotation_Rate(2, rot_z);
           if(rank == MASTER_NODE && print && ExtIter > 0) {
             cout << endl << " Updated rotating frame grid velocities";
             cout << " for zone " << iZone << "." << endl;
@@ -4812,10 +4569,8 @@ bool CTurbomachineryDriver::Monitor(unsigned long ExtIter) {
 
 CHBDriver::CHBDriver(char* confFile,
     unsigned short val_nZone,
-    bool val_periodic,
     SU2_Comm MPICommunicator) : CDriver(confFile,
         val_nZone,
-        val_periodic,
         MPICommunicator) {
   unsigned short kInst;
 
@@ -5364,10 +5119,8 @@ void CHBDriver::ComputeHB_Operator() {
 
 CFSIDriver::CFSIDriver(char* confFile,
                        unsigned short val_nZone,
-                       bool val_periodic,
                        SU2_Comm MPICommunicator) : CDriver(confFile,
                                                            val_nZone,
-                                                           val_periodic,
                                                            MPICommunicator) {
   unsigned short iVar;
   unsigned short nVar_Flow = 0, nVar_Struct = 0;
@@ -5860,10 +5613,8 @@ void CFSIDriver::DynamicMeshUpdate(unsigned long ExtIter){
 
 CDiscAdjFSIDriver::CDiscAdjFSIDriver(char* confFile,
                                      unsigned short val_nZone,
-                                     bool val_periodic,
                                      SU2_Comm MPICommunicator) : CDriver(confFile,
                                                                             val_nZone,
-                                                                            val_periodic,
                                                                             MPICommunicator) {
 
   unsigned short iVar;
@@ -7425,10 +7176,8 @@ void CDiscAdjFSIDriver::Transfer_Tractions(unsigned short donorZone, unsigned sh
 
 CMultiphysicsZonalDriver::CMultiphysicsZonalDriver(char* confFile,
                                                    unsigned short val_nZone,
-                                                   bool val_periodic,
                                                    SU2_Comm MPICommunicator) : CDriver(confFile,
                                                                                        val_nZone,
-                                                                                       val_periodic,
                                                                                        MPICommunicator) { }
 
 CMultiphysicsZonalDriver::~CMultiphysicsZonalDriver(void) { }

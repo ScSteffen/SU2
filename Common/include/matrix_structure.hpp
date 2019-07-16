@@ -48,8 +48,16 @@
 #include "geometry_structure.hpp"
 #include "vector_structure.hpp"
 
-#ifdef HAVE_MKL
+#if defined(HAVE_MKL) && !defined(CODI_FORWARD_TYPE)
 #include "mkl.h"
+#define USE_MKL
+/*---
+ Lapack direct calls only seem to be created for Intel compilers, and it is not worthwhile
+ making "getrf" and "getrs" compatible with AD since they are not used as often as "gemm".
+---*/
+#if defined(__INTEL_COMPILER) && defined(MKL_DIRECT_CALL_SEQ) && !defined(CODI_REVERSE_TYPE)
+  #define USE_MKL_LAPACK
+#endif
 #endif
 
 using namespace std;
@@ -63,6 +71,7 @@ const su2double eps = numeric_limits<passivedouble>::epsilon(); /*!< \brief mach
  with compressed row format.
  * \author A. Bueno, F. Palacios
  */
+template<class ScalarType>
 class CSysMatrix {
 private:
   int rank, 	/*!< \brief MPI Rank. */
@@ -71,8 +80,8 @@ private:
   nPointDomain,           /*!< \brief Number of points in the grid. */
   nVar,                   /*!< \brief Number of variables. */
   nEqn;                   /*!< \brief Number of equations. */
-  su2double *matrix;            /*!< \brief Entries of the sparse matrix. */
-  su2double *ILU_matrix;         /*!< \brief Entries of the ILU sparse matrix. */
+  ScalarType *matrix;            /*!< \brief Entries of the sparse matrix. */
+  ScalarType *ILU_matrix;         /*!< \brief Entries of the ILU sparse matrix. */
   unsigned long nnz;                 /*!< \brief Number of possible nonzero entries in the matrix. */
   unsigned long *row_ptr;            /*!< \brief Pointers to the first element in each row. */
   unsigned long *col_ind;            /*!< \brief Column index for each of the elements in val(). */
@@ -81,32 +90,233 @@ private:
   unsigned long *col_ind_ilu;        /*!< \brief Column index for each of the elements in val() (ILU). */
   unsigned short ilu_fill_in;        /*!< \brief Fill in level for the ILU preconditioner. */
   
-  su2double *block;             /*!< \brief Internal array to store a subblock of the matrix. */
-  su2double *block_inverse;             /*!< \brief Internal array to store a subblock of the matrix. */
-  su2double *block_weight;             /*!< \brief Internal array to store a subblock of the matrix. */
-  su2double *prod_block_vector; /*!< \brief Internal array to store the product of a subblock with a vector. */
-  su2double *prod_row_vector;   /*!< \brief Internal array to store the product of a matrix-by-blocks "row" with a vector. */
-  su2double *aux_vector;         /*!< \brief Auxiliary array to store intermediate results. */
-  su2double *sum_vector;         /*!< \brief Auxiliary array to store intermediate results. */
-  su2double *invM;              /*!< \brief Inverse of (Jacobi) preconditioner. */
+  ScalarType *block;             /*!< \brief Internal array to store a subblock of the matrix. */
+  ScalarType *block_inverse;     /*!< \brief Internal array to store a subblock of the matrix. */
+  ScalarType *block_weight;      /*!< \brief Internal array to store a subblock of the matrix. */
+  ScalarType *prod_row_vector;   /*!< \brief Internal array to store the product of a matrix-by-blocks "row" with a vector. */
+  ScalarType *aux_vector;        /*!< \brief Auxiliary array to store intermediate results. */
+  ScalarType *sum_vector;        /*!< \brief Auxiliary array to store intermediate results. */
+  ScalarType *invM;              /*!< \brief Inverse of (Jacobi) preconditioner, or diagonal of ILU. */
   
-  bool *LineletBool;                          /*!< \brief Identify if a point belong to a linelet. */
-  vector<unsigned long> *LineletPoint;        /*!< \brief Linelet structure. */
-  unsigned long nLinelet;                     /*!< \brief Number of Linelets in the system. */
-  su2double **UBlock, **invUBlock, **LBlock,
-  **yVector, **zVector, **rVector, *LFBlock,
-  *LyVector, *FzVector;           /*!< \brief Arrays of the Linelet preconditioner methodology. */
-  unsigned long max_nElem;
+  unsigned long nLinelet;                       /*!< \brief Number of Linelets in the system. */
+  vector<bool> LineletBool;                     /*!< \brief Identify if a point belong to a Linelet. */
+  vector<vector<unsigned long> > LineletPoint;  /*!< \brief Linelet structure. */
+  vector<const ScalarType*> LineletUpper;       /*!< \brief Pointers to the upper blocks of the tri-diag system. */
+  vector<ScalarType> LineletInvDiag;            /*!< \brief Inverse of the diagonal blocks of the tri-diag system. */
+  vector<ScalarType> LineletVector;             /*!< \brief Solution and RHS of the tri-diag system. */
 
-#if defined(HAVE_MKL) && !(defined(CODI_REVERSE_TYPE) || defined(CODI_FORWARD_TYPE))
-  void * MatrixMatrixProductJitter;                   		/*!< \brief Jitter handle for MKL JIT based GEMM. */
-  dgemm_jit_kernel_t MatrixMatrixProductKernel;               	/*!< \brief MKL JIT based GEMM kernel. */
-  void * MatrixVectorProductJitterBetaZero;           		/*!< \brief Jitter handle for MKL JIT based GEMV. */
-  dgemm_jit_kernel_t MatrixVectorProductKernelBetaZero;       	/*!< \brief MKL JIT based GEMV kernel. */
-  void * MatrixVectorProductJitterBetaOne;            		/*!< \brief Jitter handle for MKL JIT based GEMV with BETA=1.0. */
-  dgemm_jit_kernel_t MatrixVectorProductKernelBetaOne;        	/*!< \brief MKL JIT based GEMV kernel with BETA=1.0. */
-  bool useMKL;
+#ifdef USE_MKL
+  void * MatrixMatrixProductJitter;                            /*!< \brief Jitter handle for MKL JIT based GEMM. */
+  dgemm_jit_kernel_t MatrixMatrixProductKernel;                /*!< \brief MKL JIT based GEMM kernel. */
+  void * MatrixVectorProductJitterBetaZero;                    /*!< \brief Jitter handle for MKL JIT based GEMV. */
+  dgemm_jit_kernel_t MatrixVectorProductKernelBetaZero;        /*!< \brief MKL JIT based GEMV kernel. */
+  void * MatrixVectorProductJitterBetaOne;                     /*!< \brief Jitter handle for MKL JIT based GEMV with BETA=1.0. */
+  dgemm_jit_kernel_t MatrixVectorProductKernelBetaOne;         /*!< \brief MKL JIT based GEMV kernel with BETA=1.0. */
+  void * MatrixVectorProductJitterAlphaMinusOne;               /*!< \brief Jitter handle for MKL JIT based GEMV with ALPHA=-1.0 and BETA=1.0. */
+  dgemm_jit_kernel_t MatrixVectorProductKernelAlphaMinusOne;   /*!< \brief MKL JIT based GEMV kernel with ALPHA=-1.0 and BETA=1.0. */
+  void * MatrixVectorProductTranspJitterBetaOne;               /*!< \brief Jitter handle for MKL JIT based GEMV (transposed) with BETA=1.0. */
+  dgemm_jit_kernel_t MatrixVectorProductTranspKernelBetaOne;   /*!< \brief MKL JIT based GEMV (transposed) kernel with BETA=1.0. */
+  lapack_int * mkl_ipiv;
 #endif
+
+  /*!
+   * \brief Handle type conversion for when we Set, Add, etc. blocks, preserving derivative information (if supported by types).
+   * \note See specializations for discrete adjoint right outside this class's declaration.
+   */
+  template<class DstType, class SrcType>
+  inline DstType ActiveAssign(const SrcType & val) const { return val; }
+
+  /*!
+   * \brief Handle type conversion for when we Set, Add, etc. blocks, discarding derivative information.
+   */
+  template<class DstType, class SrcType>
+  inline DstType PassiveAssign(const SrcType & val) const {
+#if defined(CODI_REVERSE_TYPE) || defined(CODI_FORWARD_TYPE)
+    return SU2_TYPE::GetValue(val);
+#else
+    return val;
+#endif
+  }
+  
+  /*!
+   * \brief Assigns values to the sparse-matrix structure (used in Initialize).
+   * \param[in] val_nPoint - Number of points in the nPoint x nPoint block structure
+   * \param[in] val_nVar - Number of nVar x nVar variables in each subblock of the matrix-by-block structure.
+   * \param[in] val_nEq - Number of nEqn x nVar variables in each subblock of the matrix-by-block structure.
+   * \param[in] val_row_ptr - Pointers to the first element in each row.
+   * \param[in] val_col_ind - Column index for each of the elements in val().
+   * \param[in] val_nnz - Number of possible nonzero entries in the matrix.
+   * \param[in] config - Definition of the particular problem.
+   */
+  void SetIndexes(unsigned long val_nPoint, unsigned long val_nPointDomain, unsigned short val_nVar, unsigned short val_nEq, unsigned long* val_row_ptr, unsigned long* val_col_ind, unsigned long val_nnz, CConfig *config);
+  
+  /*!
+   * \brief Assigns values to the sparse-matrix structure (used in Initialize).
+   * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] iPoint - Base point to compute neighbours.
+   * \param[in] deep_level - Deep level for the recursive algorithm.
+   * \param[in] fill_level - ILU fill in level.
+   * \param[in] EdgeConnect - There is (or not) an edge structure).
+   * \param[in] vneighs - Storage the neighbours points to iPoint.
+   */
+  void SetNeighbours(CGeometry *geometry, unsigned long iPoint, unsigned short deep_level, unsigned short fill_level, bool EdgeConnect, vector<unsigned long> & vneighs);
+  
+  /*!
+   * \brief Calculates the matrix-vector product: product = matrix*vector
+   * \param[in] matrix
+   * \param[in] vector
+   * \param[out] product
+   */
+  inline void MatrixVectorProduct(const ScalarType *matrix, const ScalarType *vector, ScalarType *product);
+  
+  /*!
+   * \brief Calculates the matrix-vector product: product += matrix*vector
+   * \param[in] matrix
+   * \param[in] vector
+   * \param[in,out] product
+   */
+  inline void MatrixVectorProductAdd(const ScalarType *matrix, const ScalarType *vector, ScalarType *product);
+  
+  /*!
+   * \brief Calculates the matrix-vector product: product -= matrix*vector
+   * \param[in] matrix
+   * \param[in] vector
+   * \param[in,out] product
+   */
+  inline void MatrixVectorProductSub(const ScalarType *matrix, const ScalarType *vector, ScalarType *product);
+  
+  /*!
+   * \brief Calculates the matrix-vector product: product += matrix^T * vector
+   * \param[in] matrix
+   * \param[in] vector
+   * \param[in,out] product
+   */
+  inline void MatrixVectorProductTransp(const ScalarType *matrix, const ScalarType *vector, ScalarType *product);
+  
+  /*!
+   * \brief Calculates the matrix-matrix product
+   * \param[in] matrix_a
+   * \param[in] matrix_b
+   * \param[out] product
+   */
+  inline void MatrixMatrixProduct(const ScalarType *matrix_a, const ScalarType *matrix_b, ScalarType *product);
+  
+  /*!
+   * \brief Subtract b from a and store the result in c.
+   */
+  inline void VectorSubtraction(const ScalarType *a, const ScalarType *b, ScalarType *c) {
+    for(unsigned long iVar = 0; iVar < nVar; iVar++)
+      c[iVar] = a[iVar] - b[iVar];
+  }
+  
+  /*!
+   * \brief Subtract b from a and store the result in c.
+   */
+  inline void MatrixSubtraction(const ScalarType *a, const ScalarType *b, ScalarType *c) {
+    for(unsigned long iVar = 0; iVar < nVar*nEqn; iVar++)
+      c[iVar] = a[iVar] - b[iVar];
+  }
+  
+  /*!
+   * \brief Solve a small (nVar x nVar) linear system using Gaussian elimination.
+   * \param[in,out] matrix - On entry the system matrix, on exit the factorized matrix.
+   * \param[in,out] vec - On entry the rhs, on exit the solution.
+   */
+  inline void Gauss_Elimination(ScalarType* matrix, ScalarType* vec);
+  
+  /*!
+   * \brief Invert a small dense matrix.
+   * \param[in] matrix - the matrix.
+   * \param[out] inverse - the matrix inverse.
+   */
+  inline void MatrixInverse(const ScalarType *matrix, ScalarType *inverse);
+  
+  /*!
+   * \brief Performs the Gauss Elimination algorithm to solve the linear subsystem of the (i, i) subblock and rhs.
+   * \param[in] block_i - Index of the (i, i) subblock in the matrix-by-blocks structure.
+   * \param[in] rhs - Right-hand-side of the linear system.
+   * \param[in] transposed - If true the transposed of the block is used (default = false).
+   * \return Solution of the linear system (overwritten on rhs).
+   */
+  inline void Gauss_Elimination(unsigned long block_i, ScalarType* rhs, bool transposed = false);
+  
+  /*!
+   * \brief Inverse diagonal block.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[out] invBlock - Inverse block.
+   */
+  inline void InverseDiagonalBlock(unsigned long block_i, ScalarType *invBlock, bool transpose = false);
+  
+  /*!
+   * \brief Inverse diagonal block.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[out] invBlock - Inverse block.
+   */
+  inline void InverseDiagonalBlock_ILUMatrix(unsigned long block_i, ScalarType *invBlock);
+  
+  /*!
+   * \brief Copies the block (i, j) of the matrix-by-blocks structure in the internal variable *block.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   */
+  inline ScalarType *GetBlock_ILUMatrix(unsigned long block_i, unsigned long block_j);
+  
+  /*!
+   * \brief Set the value of a block in the sparse matrix.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] **val_block - Block to set to A(i, j).
+   */
+  inline void SetBlock_ILUMatrix(unsigned long block_i, unsigned long block_j, ScalarType *val_block);
+  
+  
+  /*!
+   * \brief Set the transposed value of a block in the sparse matrix.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] **val_block - Block to set to A(i, j).
+   */
+  inline void SetBlockTransposed_ILUMatrix(unsigned long block_i, unsigned long block_j, ScalarType *val_block);
+  
+  /*!
+   * \brief Subtracts the specified block to the sparse matrix.
+   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] **val_block - Block to subtract to A(i, j).
+   */
+  inline void SubtractBlock_ILUMatrix(unsigned long block_i, unsigned long block_j, ScalarType *val_block);
+  
+  /*!
+   * \brief Performs the product of i-th row of the upper part of a sparse matrix by a vector.
+   * \param[in] vec - Vector to be multiplied by the upper part of the sparse matrix A.
+   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
+   * \return prod Result of the product U(A)*vec (stored at *prod_row_vector).
+   */
+  void UpperProduct(const CSysVector<ScalarType> & vec, unsigned long row_i);
+  
+  /*!
+   * \brief Performs the product of i-th row of the lower part of a sparse matrix by a vector.
+   * \param[in] vec - Vector to be multiplied by the lower part of the sparse matrix A.
+   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
+   * \return prod Result of the product L(A)*vec (stored at *prod_row_vector).
+   */
+  void LowerProduct(const CSysVector<ScalarType> & vec, unsigned long row_i);
+  
+  /*!
+   * \brief Performs the product of i-th row of the diagonal part of a sparse matrix by a vector.
+   * \param[in] vec - Vector to be multiplied by the diagonal part of the sparse matrix A.
+   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
+   * \return prod Result of the product D(A)*vec (stored at *prod_row_vector).
+   */
+  void DiagonalProduct(const CSysVector<ScalarType> & vec, unsigned long row_i);
+  
+  /*!
+   * \brief Performs the product of i-th row of a sparse matrix by a vector.
+   * \param[in] vec - Vector to be multiplied by the row of the sparse matrix A.
+   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
+   * \return Result of the product (stored at *prod_row_vector).
+   */
+  void RowProduct(const CSysVector<ScalarType> & vec, unsigned long row_i);
 
 public:
   
@@ -121,7 +331,7 @@ public:
   ~CSysMatrix(void);
   
   /*!
-   * \brief Initializes space matrix system.
+   * \brief Initializes sparse matrix system.
    * \param[in] nVar - Number of variables.
    * \param[in] nEqn - Number of equations.
    * \param[in] geometry - Geometrical definition of the problem.
@@ -131,32 +341,13 @@ public:
                   bool EdgeConnect, CGeometry *geometry, CConfig *config);
   
   /*!
-   * \brief Assigns values to the sparse-matrix structure.
-   * \param[in] val_nPoint - Number of points in the nPoint x nPoint block structure
-   * \param[in] val_nVar - Number of nVar x nVar variables in each subblock of the matrix-by-block structure.
-   * \param[in] val_nEq - Number of nEqn x nVar variables in each subblock of the matrix-by-block structure.
-   * \param[in] val_row_ptr - Pointers to the first element in each row.
-   * \param[in] val_col_ind - Column index for each of the elements in val().
-   * \param[in] val_nnz - Number of possible nonzero entries in the matrix.
-   * \param[in] config - Definition of the particular problem.
-   */
-  void SetIndexes(unsigned long val_nPoint, unsigned long val_nPointDomain, unsigned short val_nVar, unsigned short val_nEq, unsigned long* val_row_ptr, unsigned long* val_col_ind, unsigned long val_nnz, CConfig *config);
-  
-  /*!
-   * \brief Assigns values to the sparse-matrix structure.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] iPoint - Base point to compute neighbours.
-   * \param[in] deep_level - Deep level for the recursive algorithm.
-   * \param[in] fill_level - ILU fill in level.
-   * \param[in] EdgeConnect - There is (or not) an edge structure).
-   * \param[in] vneighs - Storage the neighbours points to iPoint.
-   */
-  void SetNeighbours(CGeometry *geometry, unsigned long iPoint, unsigned short deep_level, unsigned short fill_level, bool EdgeConnect, vector<unsigned long> & vneighs);
-  
-  /*!
    * \brief Sets to zero all the entries of the sparse matrix.
    */
-  void SetValZero(void);
+  inline void SetValZero(void) {
+    if(matrix != NULL)
+      for (unsigned long index = 0; index < nnz*nVar*nEqn; index++)
+        matrix[index] = 0.0;
+  }
   
   /*!
    * \brief Routine to load a vector quantity into the data structures for MPI point-to-point communication and to launch non-blocking sends and recvs.
@@ -165,7 +356,8 @@ public:
    * \param[in] config   - Definition of the particular problem.
    * \param[in] commType - Enumerated type for the quantity to be communicated.
    */
-  void InitiateComms(CSysVector & x,
+  template<class OtherType>
+  void InitiateComms(CSysVector<OtherType> & x,
                      CGeometry *geometry,
                      CConfig *config,
                      unsigned short commType);
@@ -177,240 +369,188 @@ public:
    * \param[in] config   - Definition of the particular problem.
    * \param[in] commType - Enumerated type for the quantity to be unpacked.
    */
-  void CompleteComms(CSysVector & x,
+  template<class OtherType>
+  void CompleteComms(CSysVector<OtherType> & x,
                      CGeometry *geometry,
                      CConfig *config,
                      unsigned short commType);
   
   /*!
-   * \brief Copies the block (i, j) of the matrix-by-blocks structure in the internal variable *block.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \brief Get a pointer to the start of block "ij"
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
+   * \return Pointer to location in memory where the block starts.
    */
-  su2double *GetBlock(unsigned long block_i, unsigned long block_j);
+  inline ScalarType *GetBlock(unsigned long block_i, unsigned long block_j) {
+    
+    for (unsigned long index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++)
+      if (col_ind[index] == block_j)
+        return &(matrix[index*nVar*nEqn]);
+
+    return NULL;
+  }
   
   /*!
-   * \brief Copies the block (i, j) of the matrix-by-blocks structure in the internal variable *block.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \brief Gets the value of a particular entry in block "ij".
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
+   * \param[in] iVar - Row of the block.
+   * \param[in] jVar - Column of the block.
+   * \return Value of the block entry.
    */
-  su2double GetBlock(unsigned long block_i, unsigned long block_j, unsigned short iVar, unsigned short jVar);
+  inline ScalarType GetBlock(unsigned long block_i, unsigned long block_j,
+                             unsigned short iVar, unsigned short jVar) {
+  
+    for (unsigned long index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++)
+      if (col_ind[index] == block_j)
+        return matrix[index*nVar*nEqn+iVar*nEqn+jVar];
+
+    return 0.0;
+  }
   
   /*!
    * \brief Set the value of a block in the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
    * \param[in] **val_block - Block to set to A(i, j).
    */
-  void SetBlock(unsigned long block_i, unsigned long block_j, su2double **val_block);
+  template<class OtherType>
+  inline void SetBlock(unsigned long block_i, unsigned long block_j, OtherType **val_block) {
+    
+    unsigned long iVar, jVar, index;
+  
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_j) {
+        for (iVar = 0; iVar < nVar; iVar++)
+          for (jVar = 0; jVar < nEqn; jVar++)
+            matrix[index*nVar*nEqn+iVar*nEqn+jVar] = PassiveAssign<ScalarType,OtherType>(val_block[iVar][jVar]);
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Set the value of a block in the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] **val_block - Block to set to A(i, j).
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
+   * \param[in] *val_block - Block to set to A(i, j).
    */
-  void SetBlock(unsigned long block_i, unsigned long block_j, su2double *val_block);
+  template<class OtherType>
+  inline void SetBlock(unsigned long block_i, unsigned long block_j, OtherType *val_block) {
+  
+    unsigned long iVar, jVar, index;
+  
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_j) {
+        for (iVar = 0; iVar < nVar*nEqn; iVar++)
+          matrix[index*nVar*nEqn+iVar] = PassiveAssign<ScalarType,OtherType>(val_block[iVar]);
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Adds the specified block to the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
    * \param[in] **val_block - Block to add to A(i, j).
    */
-  void AddBlock(unsigned long block_i, unsigned long block_j, su2double **val_block);
+  template<class OtherType>
+  inline void AddBlock(unsigned long block_i, unsigned long block_j, OtherType **val_block) {
+  
+    unsigned long iVar, jVar, index;
+  
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_j) {
+        for (iVar = 0; iVar < nVar; iVar++)
+          for (jVar = 0; jVar < nEqn; jVar++)
+            matrix[index*nVar*nEqn+iVar*nEqn+jVar] += PassiveAssign<ScalarType,OtherType>(val_block[iVar][jVar]);
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Subtracts the specified block to the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
+   * \param[in] block_i - Row index.
+   * \param[in] block_j - Column index.
    * \param[in] **val_block - Block to subtract to A(i, j).
    */
-  void SubtractBlock(unsigned long block_i, unsigned long block_j, su2double **val_block);
+  template<class OtherType>
+  inline void SubtractBlock(unsigned long block_i, unsigned long block_j, OtherType **val_block) {
   
-  /*!
-   * \brief Copies the block (i, j) of the matrix-by-blocks structure in the internal variable *block.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   */
-  su2double *GetBlock_ILUMatrix(unsigned long block_i, unsigned long block_j);
+    unsigned long iVar, jVar, index;
   
-  /*!
-   * \brief Set the value of a block in the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] **val_block - Block to set to A(i, j).
-   */
-  void SetBlock_ILUMatrix(unsigned long block_i, unsigned long block_j, su2double *val_block);
-  
-  
-  /*!
-   * \brief Set the transposed value of a block in the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] **val_block - Block to set to A(i, j).
-   */
-  void SetBlockTransposed_ILUMatrix(unsigned long block_i, unsigned long block_j, su2double *val_block);
-  
-  /*!
-   * \brief Subtracts the specified block to the sparse matrix.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] **val_block - Block to subtract to A(i, j).
-   */
-  void SubtractBlock_ILUMatrix(unsigned long block_i, unsigned long block_j, su2double *val_block);
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_j) {
+        for (iVar = 0; iVar < nVar; iVar++)
+          for (jVar = 0; jVar < nEqn; jVar++)
+            matrix[index*nVar*nEqn+iVar*nEqn+jVar] -= PassiveAssign<ScalarType,OtherType>(val_block[iVar][jVar]);
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Adds the specified value to the diagonal of the (i, i) subblock
    *        of the matrix-by-blocks structure.
-   * \param[in] block_i - Index of the block in the matrix-by-blocks structure.
+   * \param[in] block_i - Diagonal index.
    * \param[in] val_matrix - Value to add to the diagonal elements of A(i, i).
    */
-  void AddVal2Diag(unsigned long block_i, su2double val_matrix);
+  template<class OtherType>
+  inline void AddVal2Diag(unsigned long block_i, OtherType val_matrix) {
+  
+    unsigned long iVar, index;
+  
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_i) {	// Only elements on the diagonal
+        for (iVar = 0; iVar < nVar; iVar++)
+          matrix[index*nVar*nVar+iVar*nVar+iVar] += PassiveAssign<ScalarType,OtherType>(val_matrix);
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Sets the specified value to the diagonal of the (i, i) subblock
    *        of the matrix-by-blocks structure.
-   * \param[in] block_i - Index of the block in the matrix-by-blocks structure.
+   * \param[in] block_i - Diagonal index.
    * \param[in] val_matrix - Value to add to the diagonal elements of A(i, i).
    */
-  void SetVal2Diag(unsigned long block_i, su2double val_matrix);
+  template<class OtherType>
+  inline void SetVal2Diag(unsigned long block_i, OtherType val_matrix) {
   
-  /*!
-   * \brief Calculates the matrix-vector product
-   * \param[in] matrix
-   * \param[in] vector
-   * \param[out] product
-   */
-  void MatrixVectorProduct(su2double *matrix, su2double *vector, su2double *product);
+    unsigned long iVar, jVar, index;
   
-  /*!
-   * \brief Calculates the matrix-matrix product
-   * \param[in] matrix_a
-   * \param[in] matrix_b
-   * \param[out] product
-   */
-  void MatrixMatrixProduct(su2double *matrix_a, su2double *matrix_b, su2double *product);
+    for (index = row_ptr[block_i]; index < row_ptr[block_i+1]; index++) {
+      if (col_ind[index] == block_i) {	// Only elements on the diagonal
+        
+        for (iVar = 0; iVar < nVar; iVar++)
+          for (jVar = 0; jVar < nVar; jVar++)
+            matrix[index*nVar*nVar+iVar*nVar+jVar] = 0.0;
+        
+        for (iVar = 0; iVar < nVar; iVar++)
+          matrix[index*nVar*nVar+iVar*nVar+iVar] = PassiveAssign<ScalarType,OtherType>(val_matrix);
+        
+        break;
+      }
+    }
+  }
   
   /*!
    * \brief Deletes the values of the row i of the sparse matrix.
    * \param[in] i - Index of the row.
    */
   void DeleteValsRowi(unsigned long i);
-
-  /*!
-   * \brief Recursive definition of determinate using expansion by minors. Written by Paul Bourke
-   * \param[in] a - Matrix to compute the determinant.
-   * \param[in] n - Size of the quare matrix.
-   * \return Value of the determinant.
-   */
-  su2double MatrixDeterminant(su2double **a, unsigned long n);
   
   /*!
-   * \brief Find the cofactor matrix of a square matrix. Written by Paul Bourke
-   * \param[in] a - Matrix to compute the determinant.
-   * \param[in] n - Size of the quare matrix.
-   * \param[out] b - cofactor matrix
+   * \brief Modifies this matrix (A) and a rhs vector (b) such that (A^-1 * b)_i = x_i.
+   * \param[in] node_i - Index of the node for which to enforce the solution of all DOF's.
+   * \param[in] x_i - Values to enforce (nVar sized).
+   * \param[in,out] b - The rhs vector (b := b - A_{*,i} * x_i;  b_i = x_i).
    */
-  void MatrixCoFactor(su2double **a, unsigned long n, su2double **b) ;
-  
-  /*!
-   * \brief Transpose of a square matrix, do it in place. Written by Paul Bourke
-   * \param[in] a - Matrix to compute the determinant.
-   * \param[in] n - Size of the quare matrix.
-   */
-  void MatrixTranspose(su2double **a, unsigned long n) ;
-  
-  /*!
-   * \brief Performs the Gauss Elimination algorithm to solve the linear subsystem of the (i, i) subblock and rhs.
-   * \param[in] block_i - Index of the (i, i) subblock in the matrix-by-blocks structure.
-   * \param[in] rhs - Right-hand-side of the linear system.
-   * \param[in] transposed - If true the transposed of the block is used (default = false).
-   * \return Solution of the linear system (overwritten on rhs).
-   */
-  void Gauss_Elimination(unsigned long block_i, su2double* rhs, bool transposed = false);
-  
-  /*!
-   * \brief Performs the Gauss Elimination algorithm to solve the linear subsystem of the (i, i) subblock and rhs.
-   * \param[in] Block - matrix-by-blocks structure.
-   * \param[in] rhs - Right-hand-side of the linear system.
-   * \return Solution of the linear system (overwritten on rhs).
-   */
-  void Gauss_Elimination(su2double* Block, su2double* rhs);
-  
-  /*!
-   * \brief Performs the Gauss Elimination algorithm to solve the linear subsystem of the (i, i) subblock and rhs.
-   * \param[in] block_i - Index of the (i, i) subblock in the matrix-by-blocks structure.
-   * \param[in] rhs - Right-hand-side of the linear system.
-   * \return Solution of the linear system (overwritten on rhs).
-   */
-  void Gauss_Elimination_ILUMatrix(unsigned long block_i, su2double* rhs);
-  
-  /*!
-   * \fn void CSysMatrix::ProdBlockVector(unsigned long block_i, unsigned long block_j, su2double* vec);
-   * \brief Performs the product of the block (i, j) by vector vec.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] block_j - Indexes of the block in the matrix-by-blocks structure.
-   * \param[in] vec - Vector to be multiplied by the block (i, j) of the sparse matrix A.
-   * \return Product of A(i, j) by vector *vec (stored at *prod_block_vector).
-   */
-  void ProdBlockVector(unsigned long block_i, unsigned long block_j, const CSysVector & vec);
-  
-  /*!
-   * \brief Performs the product of i-th row of the upper part of a sparse matrix by a vector.
-   * \param[in] vec - Vector to be multiplied by the upper part of the sparse matrix A.
-   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
-   * \return prod Result of the product U(A)*vec (stored at *prod_row_vector).
-   */
-  void UpperProduct(CSysVector & vec, unsigned long row_i);
-  
-  /*!
-   * \brief Performs the product of i-th row of the lower part of a sparse matrix by a vector.
-   * \param[in] vec - Vector to be multiplied by the lower part of the sparse matrix A.
-   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
-   * \return prod Result of the product L(A)*vec (stored at *prod_row_vector).
-   */
-  void LowerProduct(CSysVector & vec, unsigned long row_i);
-  
-  /*!
-   * \brief Performs the product of i-th row of the diagonal part of a sparse matrix by a vector.
-   * \param[in] vec - Vector to be multiplied by the diagonal part of the sparse matrix A.
-   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
-   * \return prod Result of the product D(A)*vec (stored at *prod_row_vector).
-   */
-  void DiagonalProduct(CSysVector & vec, unsigned long row_i);
-  
-  /*!
-   * \brief Send receive the solution using MPI.
-   * \param[in] x - Solution..
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] config - Definition of the particular problem.
-   */
-  void SendReceive_Solution(CSysVector & x, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Send receive the solution using MPI and the transposed structure of the matrix.
-   * \param[in] x - Solution..
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] config - Definition of the particular problem.
-   */
-  void SendReceive_SolutionTransposed(CSysVector & x, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Performs the product of i-th row of a sparse matrix by a vector.
-   * \param[in] vec - Vector to be multiplied by the row of the sparse matrix A.
-   * \param[in] row_i - Row of the matrix to be multiplied by vector vec.
-   * \return Result of the product (stored at *prod_row_vector).
-   */
-  void RowProduct(const CSysVector & vec, unsigned long row_i);
-  
-  /*!
-   * \brief Performs the product of a sparse matrix by a vector.
-   * \param[in] vec - Vector to be multiplied by the sparse matrix A.
-   * \param[out] prod - Result of the product.
-   * \return Result of the product A*vec.
-   */
-  void MatrixVectorProduct(const CSysVector & vec, CSysVector & prod);
+  template<class OtherType>
+  void EnforceSolutionAtNode(const unsigned long node_i, const OtherType *x_i, CSysVector<OtherType> & b);
   
   /*!
    * \brief Performs the product of a sparse matrix by a CSysVector.
@@ -419,7 +559,7 @@ public:
    * \param[in] config - Definition of the particular problem.
    * \param[out] prod - Result of the product.
    */
-  void MatrixVectorProduct(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
+  void MatrixVectorProduct(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Performs the product of a sparse matrix by a CSysVector.
@@ -428,48 +568,7 @@ public:
    * \param[in] config - Definition of the particular problem.
    * \param[out] prod - Result of the product.
    */
-  void MatrixVectorProductTransposed(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Performs the product of two block matrices.
-   */
-  void GetMultBlockBlock(su2double *c, su2double *a, su2double *b);
-  
-  /*!
-   * \brief Performs the product of a block matrices by a vector.
-   */
-  void GetMultBlockVector(su2double *c, su2double *a, su2double *b);
-  
-  /*!
-   * \brief Performs the subtraction of two matrices.
-   */
-  void GetSubsBlock(su2double *c, su2double *a, su2double *b);
-  
-  /*!
-   * \brief Performs the subtraction of two vectors.
-   */
-  void GetSubsVector(su2double *c, su2double *a, su2double *b);
-  
-  /*!
-   * \brief Inverse diagonal block.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[out] invBlock - Inverse block.
-   */
-  void InverseDiagonalBlock(unsigned long block_i, su2double *invBlock, bool transpose = false);
-  
- 	/*!
-   * \brief Inverse diagonal block.
-   * \param[in] block_i - Indexes of the block in the matrix-by-blocks structure.
-   * \param[out] invBlock - Inverse block.
-   */
-  void InverseDiagonalBlock_ILUMatrix(unsigned long block_i, su2double *invBlock);
-  
-  /*!
-   * \brief Inverse a block.
-   * \param[in] Block - block matrix.
-   * \param[out] invBlock - Inverse block.
-   */
-  void InverseBlock(su2double *Block, su2double *invBlock);
+  void MatrixVectorProductTransposed(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Build the Jacobi preconditioner.
@@ -483,22 +582,7 @@ public:
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] config - Definition of the particular problem.
    */
-  void ComputeJacobiPreconditioner(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Apply Jacobi as a classical iterative smoother
-   * \param[in] b - CSysVector containing the residual (b)
-   * \param[in] x - CSysVector containing the solution (x^k)
-   * \param[in] mat_vec - object that defines matrix-vector product
-   * \param[in] tol - tolerance with which to solve the system
-   * \param[in] m - maximum size of the search subspace
-   * \param[in] residual
-   * \param[in] monitoring - turn on priting residuals from solver to screen.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] config - Definition of the particular problem.
-   * \param[out] x - CSysVector containing the result of the smoothing (x^k+1 = x^k + M^-1*(b - A*x^k).
-   */
-  unsigned long Jacobi_Smoother(const CSysVector & b, CSysVector & x, CMatrixVectorProduct & mat_vec, su2double tol, unsigned long m, su2double *residual, bool monitoring, CGeometry *geometry, CConfig *config);
+  void ComputeJacobiPreconditioner(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Build the ILU preconditioner.
@@ -513,44 +597,14 @@ public:
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] config - Definition of the particular problem.
    */
-  void ComputeILUPreconditioner(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Apply ILU as a classical iterative smoother
-   * \param[in] b - CSysVector containing the residual (b)
-   * \param[in] x - CSysVector containing the solution (x^k)
-   * \param[in] mat_vec - object that defines matrix-vector product
-   * \param[in] tol - tolerance with which to solve the system
-   * \param[in] m - maximum size of the search subspace
-   * \param[in] residual
-   * \param[in] monitoring - turn on priting residuals from solver to screen.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] config - Definition of the particular problem.
-   * \param[out] x - CSysVector containing the result of the smoothing (x^k+1 = x^k + M^-1*(b - A*x^k).
-   */
-  unsigned long ILU_Smoother(const CSysVector & b, CSysVector & x, CMatrixVectorProduct & mat_vec, su2double tol, unsigned long m, su2double *residual, bool monitoring, CGeometry *geometry, CConfig *config);
+  void ComputeILUPreconditioner(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Multiply CSysVector by the preconditioner
    * \param[in] vec - CSysVector to be multiplied by the preconditioner.
    * \param[out] prod - Result of the product A*vec.
    */
-  void ComputeLU_SGSPreconditioner(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
-  
-  /*!
-   * \brief Apply LU_SGS as a classical iterative smoother
-   * \param[in] b - CSysVector containing the residual (b)
-   * \param[in] x - CSysVector containing the solution (x^k)
-   * \param[in] mat_vec - object that defines matrix-vector product
-   * \param[in] tol - tolerance with which to solve the system
-   * \param[in] m - maximum size of the search subspace
-   * \param[in] residual
-   * \param[in] monitoring - turn on priting residuals from solver to screen.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] config - Definition of the particular problem.
-   * \param[out] x - CSysVector containing the result of the smoothing (x^k+1 = x^k + M^-1*(b - A*x^k).
-   */
-  unsigned long LU_SGS_Smoother(const CSysVector & b, CSysVector & x, CMatrixVectorProduct & mat_vec, su2double tol, unsigned long m, su2double *residual, bool monitoring, CGeometry *geometry, CConfig *config);
+  void ComputeLU_SGSPreconditioner(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Build the Linelet preconditioner.
@@ -564,7 +618,7 @@ public:
    * \param[in] vec - CSysVector to be multiplied by the preconditioner.
    * \param[out] prod - Result of the product A*vec.
    */
-  void ComputeLineletPreconditioner(const CSysVector & vec, CSysVector & prod, CGeometry *geometry, CConfig *config);
+  void ComputeLineletPreconditioner(const CSysVector<ScalarType> & vec, CSysVector<ScalarType> & prod, CGeometry *geometry, CConfig *config);
   
   /*!
    * \brief Compute the residual Ax-b
@@ -572,239 +626,14 @@ public:
    * \param[in] f - Result of the product A*vec.
    * \param[out] res - Result of the product A*vec.
    */
-  void ComputeResidual(const CSysVector & sol, const CSysVector & f, CSysVector & res);
+  void ComputeResidual(const CSysVector<ScalarType> & sol, const CSysVector<ScalarType> & f, CSysVector<ScalarType> & res);
   
 };
 
-/*!
- * \class CSysMatrixVectorProduct
- * \brief specialization of matrix-vector product that uses CSysMatrix class
- */
-class CSysMatrixVectorProduct : public CMatrixVectorProduct {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the product. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the products
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CSysMatrixVectorProduct(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CSysMatrixVectorProduct() {}
-  
-  /*!
-   * \brief operator that defines the CSysMatrix-CSysVector product
-   * \param[in] u - CSysVector that is being multiplied by the sparse matrix
-   * \param[out] v - CSysVector that is the result of the product
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
+#ifdef CODI_REVERSE_TYPE
+template<> template<>
+inline passivedouble CSysMatrix<passivedouble>::ActiveAssign(const su2double & val) const { return SU2_TYPE::GetValue(val); }
 
-/*!
- * \class CSysMatrixVectorProduct
- * \brief specialization of matrix-vector product that uses CSysMatrix class
- */
-class CSysMatrixVectorProductTransposed : public CMatrixVectorProduct {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the product. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the products
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CSysMatrixVectorProductTransposed(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CSysMatrixVectorProductTransposed() {}
-  
-  /*!
-   * \brief operator that defines the CSysMatrix-CSysVector product
-   * \param[in] u - CSysVector that is being multiplied by the sparse matrix
-   * \param[out] v - CSysVector that is the result of the product
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-/*!
- * \class CJacobiPreconditioner
- * \brief specialization of preconditioner that uses CSysMatrix class
- */
-class CJacobiPreconditioner : public CPreconditioner {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the preconditioner. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the preconditioner
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CJacobiPreconditioner(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CJacobiPreconditioner() {}
-  
-  /*!
-   * \brief operator that defines the preconditioner operation
-   * \param[in] u - CSysVector that is being preconditioned
-   * \param[out] v - CSysVector that is the result of the preconditioning
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-/*!
- * \class CJacobiTransposedPreconditioner
- * \brief specialization of preconditioner that uses CSysMatrix class
- */
-class CJacobiTransposedPreconditioner : public CPreconditioner {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the preconditioner. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the preconditioner
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CJacobiTransposedPreconditioner(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CJacobiTransposedPreconditioner() {}
-  
-  /*!
-   * \brief operator that defines the preconditioner operation
-   * \param[in] u - CSysVector that is being preconditioned
-   * \param[out] v - CSysVector that is the result of the preconditioning
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-/*!
- * \class CILUPreconditioner
- * \brief specialization of preconditioner that uses CSysMatrix class
- */
-class CILUPreconditioner : public CPreconditioner {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the preconditioner. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the preconditioner
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CILUPreconditioner(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CILUPreconditioner() {}
-  
-  /*!
-   * \brief operator that defines the preconditioner operation
-   * \param[in] u - CSysVector that is being preconditioned
-   * \param[out] v - CSysVector that is the result of the preconditioning
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-/*!
- * \class CLU_SGSPreconditioner
- * \brief specialization of preconditioner that uses CSysMatrix class
- */
-class CLU_SGSPreconditioner : public CPreconditioner {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the preconditioner. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the preconditioner
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CLU_SGSPreconditioner(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CLU_SGSPreconditioner() {}
-  
-  /*!
-   * \brief operator that defines the preconditioner operation
-   * \param[in] u - CSysVector that is being preconditioned
-   * \param[out] v - CSysVector that is the result of the preconditioning
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-/*!
- * \class CLineletPreconditioner
- * \brief specialization of preconditioner that uses CSysMatrix class
- */
-class CLineletPreconditioner : public CPreconditioner {
-private:
-  CSysMatrix* sparse_matrix; /*!< \brief pointer to matrix that defines the preconditioner. */
-  CGeometry* geometry; /*!< \brief pointer to matrix that defines the geometry. */
-  CConfig* config; /*!< \brief pointer to matrix that defines the config. */
-  
-public:
-  
-  /*!
-   * \brief constructor of the class
-   * \param[in] matrix_ref - matrix reference that will be used to define the preconditioner
-   * \param[in] geometry_ref -
-   * \param[in] config_ref -
-   */
-  CLineletPreconditioner(CSysMatrix & matrix_ref, CGeometry *geometry_ref, CConfig *config_ref);
-  
-  /*!
-   * \brief destructor of the class
-   */
-  ~CLineletPreconditioner() {}
-  
-  /*!
-   * \brief operator that defines the preconditioner operation
-   * \param[in] u - CSysVector that is being preconditioned
-   * \param[out] v - CSysVector that is the result of the preconditioning
-   */
-  void operator()(const CSysVector & u, CSysVector & v) const;
-};
-
-#include "matrix_structure.inl"
+template<> template<>
+inline passivedouble CSysMatrix<su2double>::ActiveAssign(const su2double & val) const { return SU2_TYPE::GetValue(val); }
+#endif

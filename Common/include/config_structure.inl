@@ -334,6 +334,10 @@ inline unsigned long CConfig::GetDyn_nIntIter(void) { return Dyn_nIntIter; }
 
 inline long CConfig::GetUnst_AdjointIter(void) { return Unst_AdjointIter; }
 
+inline void CConfig::SetPhysicalTime(su2double val_t) { PhysicalTime = val_t; }
+
+inline su2double CConfig::GetPhysicalTime(void) { return PhysicalTime; }
+
 inline bool CConfig::GetReorientElements(void) { return ReorientElements; }
 
 inline unsigned long CConfig::GetIter_Avg_Objective(void) { return Iter_Avg_Objective ; }
@@ -942,45 +946,53 @@ inline unsigned short CConfig::GetKind_GridMovement() { return Kind_GridMovement
 
 inline void CConfig::SetKind_GridMovement(unsigned short motion_Type) { Kind_GridMovement = motion_Type; }
 
-inline su2double* CConfig::GetMotion_Origin(){return Motion_Origin;}
+inline su2double CConfig::GetMotion_Origin(unsigned short iDim){return Motion_Origin[iDim];}
 
-inline su2double* CConfig::GetMarkerMotion_Origin(unsigned short iMarkerMoving){return &MarkerMotion_Origin[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerMotion_Origin(unsigned short iMarkerMoving, unsigned short iDim){return MarkerMotion_Origin[3*iMarkerMoving + iDim];}
 
 inline void CConfig::SetMarkerMotion_Origin(su2double* val, unsigned short iMarkerMoving){
   for (unsigned short iDim = 0; iDim < 3; iDim++){
-    MarkerMotion_Origin[iDim*iMarkerMoving] = val[iDim];
+    MarkerMotion_Origin[3*iMarkerMoving + iDim] = val[iDim];
   }
 }
 
-inline su2double* CConfig::GetTranslation_Rate(){return Translation_Rate;}
+inline void CConfig::SetMotion_Origin(su2double* val){
+  for (unsigned short iDim = 0; iDim < 3; iDim++){
+    Motion_Origin[iDim] = val[iDim];
+  }
+}
 
-inline su2double* CConfig::GetMarkerTranslationRate(unsigned short iMarkerMoving){return &MarkerTranslation_Rate[3*iMarkerMoving];}
+inline su2double CConfig::GetTranslation_Rate(unsigned short iDim){return Translation_Rate[iDim];}
 
-inline su2double* CConfig::GetRotation_Rate(){return Rotation_Rate;}
+inline su2double CConfig::GetMarkerTranslationRate(unsigned short iMarkerMoving, unsigned short iDim){return MarkerTranslation_Rate[3*iMarkerMoving + iDim];}
+
+inline su2double CConfig::GetRotation_Rate(unsigned short iDim){return Rotation_Rate[iDim];}
+
+inline void CConfig::SetRotation_Rate(unsigned short iDim, su2double val){Rotation_Rate[iDim] = val;}
 
 inline su2double CConfig::GetFinalRotation_Rate_Z(){return FinalRotation_Rate_Z;}
 
-inline su2double* CConfig::GetMarkerRotationRate(unsigned short iMarkerMoving){return &MarkerRotation_Rate[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerRotationRate(unsigned short iMarkerMoving, unsigned short iDim){return MarkerRotation_Rate[3*iMarkerMoving + iDim];}
 
-inline su2double* CConfig::GetPitching_Omega(){return Pitching_Omega;}
+inline su2double CConfig::GetPitching_Omega(unsigned short iDim){return Pitching_Omega[iDim];}
 
-inline su2double* CConfig::GetMarkerPitching_Omega(unsigned short iMarkerMoving){return &MarkerPitching_Omega[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerPitching_Omega(unsigned short iMarkerMoving, unsigned short iDim){return MarkerPitching_Omega[3*iMarkerMoving + iDim];}
 
-inline su2double* CConfig::GetPitching_Ampl(){return Pitching_Ampl;}
+inline su2double CConfig::GetPitching_Ampl(unsigned short iDim){return Pitching_Ampl[iDim];}
 
-inline su2double* CConfig::GetMarkerPitching_Ampl(unsigned short iMarkerMoving){return &MarkerPitching_Ampl[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerPitching_Ampl(unsigned short iMarkerMoving, unsigned short iDim){return MarkerPitching_Ampl[3*iMarkerMoving + iDim];}
 
-inline su2double* CConfig::GetPitching_Phase(){return Pitching_Phase;}
+inline su2double CConfig::GetPitching_Phase(unsigned short iDim){return Pitching_Phase[iDim];}
 
-inline su2double* CConfig::GetMarkerPitching_Phase(unsigned short iMarkerMoving){return &MarkerPitching_Phase[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerPitching_Phase(unsigned short iMarkerMoving, unsigned short iDim){return MarkerPitching_Phase[3*iMarkerMoving + iDim];}
 
-inline su2double* CConfig::GetPlunging_Omega(){return Plunging_Omega;}
+inline su2double CConfig::GetPlunging_Omega(unsigned short iDim){return Plunging_Omega[iDim];}
 
-inline su2double* CConfig::GetMarkerPlunging_Omega(unsigned short iMarkerMoving){return &MarkerPlunging_Omega[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerPlunging_Omega(unsigned short iMarkerMoving, unsigned short iDim){return MarkerPlunging_Omega[3*iMarkerMoving + iDim];}
 
-inline su2double* CConfig::GetPlunging_Ampl(){return Plunging_Ampl;}
+inline su2double CConfig::GetPlunging_Ampl(unsigned short iDim){return Plunging_Ampl[iDim];}
 
-inline su2double* CConfig::GetMarkerPlunging_Ampl(unsigned short iMarkerMoving){return &MarkerPlunging_Ampl[3*iMarkerMoving];}
+inline su2double CConfig::GetMarkerPlunging_Ampl(unsigned short iMarkerMoving, unsigned short iDim){return MarkerPlunging_Ampl[3*iMarkerMoving + iDim];}
 
 inline su2double CConfig::GetMach_Motion(void) { return Mach_Motion; }
 
@@ -1015,6 +1027,8 @@ inline unsigned long CConfig::GetDeform_Linear_Solver_Iter(void) { return Deform
 inline unsigned short CConfig::GetLinear_Solver_ILU_n(void) { return Linear_Solver_ILU_n; }
 
 inline unsigned long CConfig::GetLinear_Solver_Restart_Frequency(void) { return Linear_Solver_Restart_Frequency; }
+
+inline su2double CConfig::GetLinear_Solver_Smoother_Relaxation(void) const { return Linear_Solver_Smoother_Relaxation; }
 
 inline su2double CConfig::GetRelaxation_Factor_Flow(void) { return Relaxation_Factor_Flow; }
 
@@ -1569,7 +1583,7 @@ inline su2double CConfig::GetFixAzimuthalLine(void) { return FixAzimuthalLine; }
 
 inline su2double CConfig::GetCFLRedCoeff_Turb(void) { return CFLRedCoeff_Turb; }
 
-inline bool CConfig::GetGrid_Movement(void) { return (Kind_GridMovement != NO_MOVEMENT) || (nKind_SurfaceMovement > 0); }
+inline bool CConfig::GetGrid_Movement(void) { return (Kind_GridMovement != NO_MOVEMENT) || ((nKind_SurfaceMovement > 0) && !GetSurface_Movement(FLUID_STRUCTURE_STATIC)); }
 
 inline unsigned short CConfig::GetKind_SurfaceMovement(unsigned short iMarkerMoving){return Kind_SurfaceMovement[iMarkerMoving];}
 
@@ -1612,26 +1626,6 @@ inline bool CConfig::GetInconsistent_Disc(void){ return Inconsistent_Disc; }
 inline bool CConfig::GetSens_Remove_Sharp(void) { return Sens_Remove_Sharp; }
 
 inline bool CConfig::GetHold_GridFixed(void) { return Hold_GridFixed; }
-
-inline unsigned short CConfig::GetnPeriodicIndex(void) { return nPeriodic_Index; }
-
-inline su2double* CConfig::GetPeriodicCenter(unsigned short val_index) { return Periodic_Center[val_index]; }
-
-inline void CConfig::SetPeriodicCenter(unsigned short val_index, su2double* center) {
-  for (unsigned short i = 0; i < 3; i++) Periodic_Center[val_index][i] = center[i];
-}
-
-inline su2double* CConfig::GetPeriodicRotation(unsigned short val_index) { return Periodic_Rotation[val_index]; }
-
-inline void CConfig::SetPeriodicRotation(unsigned short val_index, su2double* rotation) {
-    for (unsigned short i = 0; i < 3; i++) Periodic_Rotation[val_index][i] = rotation[i];
-}
-
-inline su2double* CConfig::GetPeriodicTranslate(unsigned short val_index) { return Periodic_Translate[val_index]; }
-
-inline void CConfig::SetPeriodicTranslate(unsigned short val_index, su2double* translate) {
-  for (unsigned short i = 0; i < 3; i++) Periodic_Translate[val_index][i] = translate[i];
-}
 
 inline su2double CConfig::GetCyclic_Pitch(void) { return Cyclic_Pitch; }
 
@@ -1971,6 +1965,8 @@ inline bool CConfig::GetQCR(void) {return QCR;}
 
 inline bool CConfig::GetCompute_Average(void) {return Compute_Average;}
 
+inline unsigned short CConfig::GetVerification_Solution(void) {return Kind_Verification_Solution;}
+
 inline ofstream* CConfig::GetHistFile(void) { return ConvHistFile; }
 
 inline void CConfig::SetHistFile(ofstream *HistFile) { ConvHistFile = HistFile; }
@@ -2063,3 +2059,7 @@ inline string CConfig::GetConv_Field(){ return ConvField; }
 inline void  CConfig::Set_StartTime(su2double starttime){StartTime = starttime;}
 
 inline su2double  CConfig::Get_StartTime() {return StartTime;}
+
+inline su2double* CConfig::GetScreen_Wrt_Freq() {return ScreenWrtFreq;}
+
+inline su2double* CConfig::GetHistory_Wrt_Freq() {return HistoryWrtFreq;}
