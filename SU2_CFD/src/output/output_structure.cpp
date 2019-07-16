@@ -5917,11 +5917,11 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     if (currentField.FieldType == TYPE_COEFFICIENT){
       if(SetUpdate_Averages(config)){
         SetHistoryOutputValue("TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
-        RunningAverages[HistoryOutput_List[iField]].addValue(currentField.Value,config->GetTimeIter(), config->GetStartWindowIteration()); //Setting Start-Iteration for Windowing
-        SetHistoryOutputValue("SQ_WND_AVG_" + HistoryOutput_List[iField],     RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 0));
-        SetHistoryOutputValue("HANN_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 1));
-        SetHistoryOutputValue("HANNSQ_WND_AVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 2));
-        SetHistoryOutputValue("BUMP_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 3));
+        RunningAverages[HistoryOutput_List[iField]].addValue(currentField.Value,config->GetTimeIter(), config->GetStartWindowIteration()); //Saving Coefficient Values for Windowing
+        SetHistoryOutputValue("SQ_WND_AVG_" + HistoryOutput_List[iField],     RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(0));
+        SetHistoryOutputValue("HANN_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(1));
+        SetHistoryOutputValue("HANNSQ_WND_AVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(2));
+        SetHistoryOutputValue("BUMP_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate(3));
       }
       if (config->GetDirectDiff() != NO_DERIVATIVE){
         SetHistoryOutputValue("D_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(currentField.Value));      

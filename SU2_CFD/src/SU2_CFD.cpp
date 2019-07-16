@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /*--- Uncomment the following line if runtime NaN catching is desired. ---*/
-  // feenableexcept(FE_INVALID | FE_OVERFLOW);
+  //feenableexcept(FE_INVALID | FE_OVERFLOW);
 
   /*--- Initialize libxsmm, if supported. ---*/
 #ifdef HAVE_LIBXSMM

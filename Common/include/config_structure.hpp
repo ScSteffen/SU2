@@ -703,7 +703,6 @@ private:
   unsigned short Analytical_Surface;	/*!< \brief Information about the analytical definition of the surface for grid adaptation. */
   unsigned short Geo_Description;	/*!< \brief Description of the geometry. */
   unsigned short Mesh_FileFormat;	/*!< \brief Mesh input format. */
-  unsigned short LongtimeWindow;        /*!< \brief Windowing function for long time Windowing. */
   unsigned long StartWindowIteration;  /*!< \brief Starting Iteration for long time Windowing apporach . */
   unsigned short Output_FileFormat;	/*!< \brief Format of the output files. */
   unsigned short ActDisk_Jump;	/*!< \brief Format of the output files. */
@@ -1078,7 +1077,6 @@ private:
   unsigned short nScreenOutput,         /*!< \brief Number of screen output variables (max: 6). */
   nHistoryOutput, nVolumeOutput;                       /*!< \brief Number of variables printed to the history file. */
   bool Multizone_Residual;      /*!< \brief Determines if memory should be allocated for the multizone residual. */
-  
   bool using_uq;                /*!< \brief Using uncertainty quantification with SST model */
   su2double uq_delta_b;            /*!< \brief Parameter used to perturb eigenvalues of Reynolds Stress Matrix */
   unsigned short eig_val_comp;  /*!< \brief Parameter used to determine type of eigenvalue perturbation */
@@ -5339,15 +5337,6 @@ public:
    */
   unsigned short GetOutput_FileFormat(void);
   
-  /*!
-   * \brief Get the Name of the windowing funtction used for
-   *        long time windowing in sensitivity analysis with
-   *        limit cycle oscillations
-   * \return
-   */
-  unsigned short GetLongtimeWindow(void);
-
-
   /*!
    * \brief Get the Starting Iteration for the windowing approach
    *        in Sensitivity Analysis for LCOs.

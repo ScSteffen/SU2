@@ -1579,11 +1579,6 @@ enum ENUM_LONGTIME_WINDOW {
   BUMP = 3,  		     /*!< \brief Bump window. */
 };
 
-static const map<string, ENUM_LONGTIME_WINDOW> LontimeWindow_Map = CCreateMap<string, ENUM_LONGTIME_WINDOW>
-("HANN", HANN)
-("HANN_SQUARED", HANN_SQUARED)
-("BUMP", BUMP);
-
 /*!
  * \brief type of volume sensitivity file formats (inout to SU2_DOT)
  */
