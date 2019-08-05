@@ -1310,11 +1310,19 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     if (currentField.FieldType == TYPE_COEFFICIENT){
       if(SetUpdate_Averages(config)){
         SetHistoryOutputValue("TAVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].Update(currentField.Value));
+        RunningAverages[HistoryOutput_List[iField]].addValue(currentField.Value,config->GetTimeIter(), config->GetStartWindowIteration()); //Setting Start-Iteration for Windowing
+        SetHistoryOutputValue("SQ_WND_AVG_" + HistoryOutput_List[iField],     RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 0));
+        SetHistoryOutputValue("HANN_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 1));
+        SetHistoryOutputValue("HANNSQ_WND_AVG_" + HistoryOutput_List[iField], RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 2));
+        SetHistoryOutputValue("BUMP_WND_AVG_" + HistoryOutput_List[iField],   RunningAverages[HistoryOutput_List[iField]].WindowedUpdate( 3));
       }
       if (config->GetDirectDiff() != NO_DERIVATIVE){
         SetHistoryOutputValue("D_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(currentField.Value));      
-        SetHistoryOutputValue("D_TAVG_" + HistoryOutput_List[iField], SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetVal()));
-        
+        SetHistoryOutputValue("D_TAVG_" + HistoryOutput_List[iField]            , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetVal()));
+        SetHistoryOutputValue("D_SQ_WND_AVG_" + HistoryOutput_List[iField]      , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(0)));
+        SetHistoryOutputValue("D_HANN_WND_AVG_" + HistoryOutput_List[iField]    , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(1)));
+        SetHistoryOutputValue("D_HANNSQ_WND_AVG_" + HistoryOutput_List[iField]  , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(2)));
+        SetHistoryOutputValue("D_BUMP_WND_AVG_" + HistoryOutput_List[iField]    , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(3)));
       }
     }
   }
@@ -1338,9 +1346,17 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
       Average[currentField.OutputGroup] = true;
     }
     if (currentField.FieldType == TYPE_COEFFICIENT){
-      AddHistoryOutput("TAVG_"   + HistoryOutput_List[iField], "tavg["  + currentField.FieldName + "]", currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
-      AddHistoryOutput("D_"      + HistoryOutput_List[iField], "d["     + currentField.FieldName + "]", currentField.ScreenFormat, "D_"      + currentField.OutputGroup);  
-      AddHistoryOutput("D_TAVG_" + HistoryOutput_List[iField], "dtavg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);  
+      AddHistoryOutput("TAVG_"     + HistoryOutput_List[iField]         , "tavg["  + currentField.FieldName + "]"           , currentField.ScreenFormat, "TAVG_"   + currentField.OutputGroup);
+      AddHistoryOutput("D_"        + HistoryOutput_List[iField]         , "d["     + currentField.FieldName + "]"           , currentField.ScreenFormat, "D_"      + currentField.OutputGroup);
+      AddHistoryOutput("D_TAVG_"   + HistoryOutput_List[iField]         , "dtavg[" + currentField.FieldName + "]"           , currentField.ScreenFormat, "D_TAVG_" + currentField.OutputGroup);
+      AddHistoryOutput("SQ_WND_AVG_" + HistoryOutput_List[iField]       , "sq_wnd_avg[" + currentField.FieldName + "]"      , currentField.ScreenFormat, "SQ_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("HANN_WND_AVG_" + HistoryOutput_List[iField]     , "hann_wnd_avg[" + currentField.FieldName + "]"    , currentField.ScreenFormat, "HANN_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("HANNSQ_WND_AVG_" + HistoryOutput_List[iField]   , "hannSq_wnd_avg[" + currentField.FieldName + "]"         , currentField.ScreenFormat, "HANNSQ_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("BUMP_WND_AVG_" + HistoryOutput_List[iField]     , "bump_wnd_avg[" + currentField.FieldName + "]"         , currentField.ScreenFormat, "BUMP_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("D_SQ_WND_AVG_" + HistoryOutput_List[iField]     , "d_sq_wnd_avg[" + currentField.FieldName + "]"    , currentField.ScreenFormat, "D_SQ_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("D_HANN_WND_AVG_" + HistoryOutput_List[iField]   , "d_hann_wnd_avg[" + currentField.FieldName + "]"  , currentField.ScreenFormat, "D_HANN_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("D_HANNSQ_WND_AVG_" + HistoryOutput_List[iField] , "d_hannsq_wnd_avg[" + currentField.FieldName + "]", currentField.ScreenFormat, "D_HANNSQ_WND_AVG_" + currentField.OutputGroup);
+      AddHistoryOutput("D_BUMP_WND_AVG_" + HistoryOutput_List[iField]   , "d_bump_wnd_avg[" + currentField.FieldName + "]"  , currentField.ScreenFormat, "D_BUMP_WND_AVG_" + currentField.OutputGroup);
     }
   }
   
