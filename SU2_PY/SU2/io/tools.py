@@ -261,7 +261,10 @@ def get_headerMap(nZones = 1):
                  "D(Secondary_Strength)"        : "D_SURFACE_SECONDARY"             ,
                  "D(Momentum_Distortion)"       : "D_SURFACE_MOM_DISTORTION"        ,
                  "D(Secondary_Over_Uniformity)" : "D_SURFACE_SECOND_OVER_UNIFORM"   ,
-                 "D(Pressure_Drop)"             : "D_SURFACE_PRESSURE_DROP"         }
+                 "D(Pressure_Drop)"             : "D_SURFACE_PRESSURE_DROP"         ,
+                 "bump_wnd_avg[CL]"             : "WND_LIFT"                        ,
+                 "bump_wnd_avg[CD]"             : "WND_DRAG"                         ,
+                 "bump_wnd_avg[CEff]"           : "WND_EFFICIENCY"}
  
     return history_header_map        
 
@@ -313,7 +316,10 @@ optnames_aero = [ "LIFT"                        ,
                   "TOTAL_HEATFLUX"              ,
                   "MAXIMUM_HEATFLUX"            ,
                   "CUSTOM_OBJFUNC"              ,
-                  "COMBO"]
+                  "COMBO"                       ,
+                  "WND_LIFT"                    ,
+                  "WND_DRAG"                    ,
+                  "WND_EFFICIENCY"]
 
 # Turbo performance optimizer Function Names
 optnames_turbo = ["TOTAL_PRESSURE_LOSS"     ,
@@ -526,24 +532,10 @@ def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_av
     for this_objfun in func_names:
         if this_objfun in history_data:
             Func_Values[this_objfun] = history_data[this_objfun] 
-    
-    # for unsteady cases, average time-accurate objective function values
-    if 'UNSTEADY_SIMULATION' in special_cases and not final_avg:
-        for key,value in Func_Values.items():
-            Func_Values[key] = sum(value)/len(value)
-         
-    # average the final iterations   
-    elif final_avg:
-        for key,value in Func_Values.iteritems():
-            # only the last few iterations
-            i_fin = min([final_avg,len(value)])
-            value = value[-i_fin:]
-            Func_Values[key] = sum(value)/len(value)
-    
-    # otherwise, keep only last value
-    else:
-        for key,value in Func_Values.iteritems():
-            Func_Values[key] = value[-1]
+
+    # keep only last value
+    for key,value in Func_Values.iteritems():
+        Func_Values[key] = value[-1]
                     
     return Func_Values
     
