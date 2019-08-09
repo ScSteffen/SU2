@@ -1323,7 +1323,6 @@ void COutput::Postprocess_HistoryData(CConfig *config){
         SetHistoryOutputValue("D_HANN_WND_AVG_" + HistoryOutput_List[iField]    , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(1)));
         SetHistoryOutputValue("D_HANNSQ_WND_AVG_" + HistoryOutput_List[iField]  , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(2)));
         SetHistoryOutputValue("D_BUMP_WND_AVG_" + HistoryOutput_List[iField]    , SU2_TYPE::GetDerivative(RunningAverages[HistoryOutput_List[iField]].GetWndVal(3)));
-
       }
     }
   }

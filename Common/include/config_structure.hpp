@@ -87,6 +87,7 @@ private:
   su2double Fan_Poly_Eff; /*!< \brief Highlite area. */
   su2double OrderMagResidual; /*!< \brief Order of magnitude reduction. */
   su2double MinLogResidual; /*!< \brief Minimum value of the log residual. */
+  su2double WndMinLogResidual; /*!< \brief Minimum value of the log residual for the windowed time average convergence criterion. */
   su2double OrderMagResidualFSI; /*!< \brief Order of magnitude reduction. */
   su2double MinLogResidualFSI; /*!< \brief Minimum value of the log residual. */
   su2double OrderMagResidual_BGS_F; /*!< \brief Order of magnitude reduction. */
@@ -101,7 +102,8 @@ private:
   su2double* EA_IntLimit; /*!< \brief Integration limits of the Equivalent Area computation */
   su2double AdjointLimit; /*!< \brief Adjoint variable limit */
   su2double* Obj_ChainRuleCoeff; /*!< \brief Array defining objective function for adjoint problem based on chain rule in terms of gradient w.r.t. density, velocity, pressure */
-  string ConvField;
+  string ConvField,
+  WndConvField;     /*!< \brief Function where to apply the windowed convergence criteria for the time average of the unsteady (single zone) flow problem. */
   bool MG_AdjointFlow; /*!< \brief MG with the adjoint flow problem */
   su2double* SubsonicEngine_Cyl; /*!< \brief Coordinates of the box subsonic region */
   su2double* SubsonicEngine_Values; /*!< \brief Values of the box subsonic region */
@@ -636,11 +638,15 @@ private:
   su2double ChargeCoeff;		/*!< \brief Charge coefficient (just for poisson problems). */
   unsigned short Cauchy_Func_Flow,	/*!< \brief Function where to apply the convergence criteria in the flow problem. */
   Cauchy_Func_AdjFlow,				/*!< \brief Function where to apply the convergence criteria in the adjoint problem. */
-  Cauchy_Elems;						/*!< \brief Number of elements to evaluate. */
+  Cauchy_Elems,						/*!< \brief Number of elements to evaluate. */
+  Wnd_Cauchy_Elems;       /*!< \brief Number of elements to evaluate in the time iteration  for convergence of the time average of the unsteady (single zone)´ flow problem.  */
   unsigned short Residual_Func_Flow;	/*!< \brief Equation to apply residual convergence to. */
   unsigned short Res_FEM_CRIT;  /*!< \brief Criteria to apply to the FEM convergence (absolute/relative). */
-  unsigned long StartConv_Iter;	/*!< \brief Start convergence criteria at iteration. */
-  su2double Cauchy_Eps;	/*!< \brief Epsilon used for the convergence. */
+  unsigned long StartConv_Iter,	/*!< \brief Start convergence criteria at iteration. */
+  Wnd_StartConv_Iter;           /*!< \brief Start convergence criteria at this iteration after Start_Iter_Wnd. */
+  bool Wnd_Cauchy_Crit;         /*!< \brief True => Cauchy criterion is used for time average objective function in unsteady flows. */
+  su2double Cauchy_Eps,	/*!< \brief Epsilon used for the convergence. */
+  Wnd_Cauchy_Eps;       /*!< \brief Epsilon used for the convergence of the time average of the unsteady (single zone)´ flow problem. */
   unsigned long Wrt_Sol_Freq,	/*!< \brief Writing solution frequency. */
   Wrt_Sol_Freq_DualTime,	/*!< \brief Writing solution frequency for Dual Time. */
   Wrt_Con_Freq,				/*!< \brief Writing convergence history frequency. */
@@ -5537,7 +5543,7 @@ public:
    * \return Functional that is going to be used to evaluate the flow convergence.
    */
   unsigned short GetCauchy_Func_Flow(void);
-  
+
   /*!
    * \brief Get functional that is going to be used to evaluate the adjoint flow convergence.
    * \return Functional that is going to be used to evaluate the adjoint flow convergence.
@@ -5549,6 +5555,12 @@ public:
    * \return Number of elements in the Cauchy criteria.
    */
   unsigned short GetCauchy_Elems(void);
+
+  /*!
+   * \brief Get the number of iterations that are considered in the Cauchy convergence criteria for the windowed time average of the unsteady problem.
+   * \return Number of elements in the Cauchy criteria windowed time average of the unsteady problem.
+   */
+  unsigned short GetWnd_Cauchy_Elems(void);
   
   /*!
    * \brief Get the number of iterations that are not considered in the convergence criteria.
@@ -5557,12 +5569,38 @@ public:
   unsigned long GetStartConv_Iter(void);
   
   /*!
+   * \brief Get the number of iterations that are not considered in the convergence criteria for the windowed average output function
+   * \return Number of iterations before starting with the convergence criteria for the windowed average output function.
+   */
+  unsigned long  GetWnd_StartConv_Iter(void);
+
+  /*!
    * \brief Get the value of convergence criteria for the Cauchy method in the direct,
    *        adjoint or linearized problem.
    * \return Value of the convergence criteria.
    */
   su2double GetCauchy_Eps(void);
   
+  /*!
+   * \brief Get the value of convergence criteria for the Cauchy method for the time averaged
+   *        windowed objective functions for unsteady flows
+   * \return Value of the convergence criteria.
+   */
+  su2double GetWnd_Cauchy_Eps(void);
+
+  /*!
+   * \brief Get the boolean value, whether the the Cauchy method for the time averaged
+   *        windowed objective functions for unsteady flows is used or not.
+   * \return Boolean value, if the criterion is used.
+   */
+  bool GetWnd_Cauchy_Crit(void);
+
+  /*!
+   * \brief Get functional that is going to be used to evaluate the convergence of the windowed time average of the unsteady problem.
+   * \return Functional that is going to be used to evaluate the the convergence of the windowed time average of the unsteady problem.
+   */
+  string GetWndConv_Field(void);
+
   /*!
    * \brief If we are prforming an unsteady simulation, there is only
    *        one value of the time step for the complete simulation.
@@ -6164,6 +6202,12 @@ public:
    * \return Value of the minimum residual value (log10 scale).
    */
   su2double GetMinLogResidual(void);
+
+  /*!
+   * \brief Value of the minimum residual value (log10 scale) for the windowed time average convergence criterion.
+   * \return Value of the minimum residual value (log10 scale) for the windowed time average convergence criterion.
+   */
+  su2double GetWndMinLogResidual(void);
   
   /*!
    * \brief Value of the order of magnitude reduction of the residual for FSI applications.

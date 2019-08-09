@@ -352,6 +352,15 @@ public:
   su2double GetHistoryFieldValue(string field){
     return HistoryOutput_Map[field].Value;
   }
+
+  int GetHistoryFieldType(int type){
+    switch (type) {
+      case 0 : return TYPE_RESIDUAL;
+      case 1 : return TYPE_AUTO_RESIDUAL;
+      case 2 : return TYPE_COEFFICIENT;
+      default : return TYPE_DEFAULT;
+    }
+  }
   
   vector<HistoryOutputField> GetHistoryGroup(string groupname){
     vector<HistoryOutputField> HistoryGroup;  

@@ -1,4 +1,4 @@
-#pragma once
+    #pragma once
 
 #include "../datatype_structure.hpp"
 #include "../../include/option_structure.hpp"
@@ -65,7 +65,7 @@ namespace Signal_Processing {
     }
 
     su2double WindowedUpdate(int fctIdx){ //Computes a windowed time average (integral)
-      if(values.size()!=0){
+      if(values.size()>1){
           switch (fctIdx){
             case 1: hannWndVal      = HannWindowing();        return hannWndVal;
             case 2: hannSqWndVal    = HannSquaredWindowing(); return hannSqWndVal;

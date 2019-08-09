@@ -1439,6 +1439,8 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("RESIDUAL_REDUCTION", OrderMagResidual, 5.0);
   /*!\brief RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("RESIDUAL_MINVAL", MinLogResidual, -14.0);
+  /*!\brief WND_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -5.0 \ingroup Config*/
+  addDoubleOption("WND_RESIDUAL_MINVAL", WndMinLogResidual, -5.0);
   /* DESCRIPTION: Residual reduction (order of magnitude with respect to the initial value) */
   addDoubleOption("RESIDUAL_REDUCTION_FSI", OrderMagResidualFSI, 3.0);
   /* DESCRIPTION: Min value of the residual (log10 of the residual) */
@@ -1463,15 +1465,26 @@ void CConfig::SetConfig_Options() {
   addEnumOption("RESIDUAL_FUNC_FLOW", Residual_Func_Flow, Residual_Map, RHO_RESIDUAL);
   /*!\brief STARTCONV_ITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
   addUnsignedLongOption("STARTCONV_ITER", StartConv_Iter, 5);
+  /*!\brief WND_STARTCONV_ITER\n DESCRIPTION: Iteration number after START_ITER_WND  to begin convergence monitoring\n DEFAULT: 15 \ingroup Config*/
+  addUnsignedLongOption("WND_STARTCONV_ITER", Wnd_StartConv_Iter, 15);
   /*!\brief CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
   addUnsignedShortOption("CAUCHY_ELEMS", Cauchy_Elems, 100);
+  /*!\brief WND_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
+  addUnsignedShortOption("WND_CAUCHY_ELEMS", Wnd_Cauchy_Elems, 100);
   /*!\brief CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-10 \ingroup Config*/
   addDoubleOption("CAUCHY_EPS", Cauchy_Eps, 1E-10);
+  /*!\brief WND_CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-3 \ingroup Config*/
+  addDoubleOption("WND_CAUCHY_EPS", Wnd_Cauchy_Eps, 1E-3);
+  /*!\brief WND_CAUCHY_CRIT\n DESCRIPTION: Determines, if the cauchy convergence criterion should be used for windowed time averaged objective functions*/
+  addBoolOption("WND_CAUCHY_CRIT",Wnd_Cauchy_Crit, false);
   /*!\brief CAUCHY_FUNC_FLOW
    *  \n DESCRIPTION: Flow functional for the Cauchy criteria \n OPTIONS: see \link Objective_Map \endlink \n DEFAULT: DRAG_COEFFICIENT \ingroup Config*/
   addEnumOption("CAUCHY_FUNC_FLOW", Cauchy_Func_Flow, Objective_Map, DRAG_COEFFICIENT);
   /*!\brief CAUCHY_FUNC_ADJFLOW\n DESCRIPTION: Adjoint functional for the Cauchy criteria.\n OPTIONS: See \link Sens_Map \endlink. \n DEFAULT: SENS_GEOMETRY \ingroup Config*/
   addEnumOption("CAUCHY_FUNC_ADJFLOW", Cauchy_Func_AdjFlow, Sens_Map, SENS_GEOMETRY);
+  /*!\brief WND_CONV_FIELD
+   * \n DESCRIPTION: Flow functional for the Cauchy criterium for the TIME iteration. The criterium is applied to the windowed time average of the chosen funcion. */
+  addStringOption("WND_CONV_FIELD", WndConvField, "");
 
   addStringOption("CONV_FIELD", ConvField, "");
 
@@ -6046,6 +6059,8 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
     if (SinglezoneDriver){
       cout << "Maximum number of solver subiterations: " << nIter <<"."<< endl;
       cout << "Maximum number of physical time-steps: " << nTimeIter <<"."<< endl;
+      cout << "Start iteration for windowing: " << StartWindowIteration <<"."<<endl;
+
     }
     else{
       cout << "Maximum number of iterations: " << nExtIter <<"."<< endl;
@@ -6086,6 +6101,29 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
           cout << "Reduce the adjoint density residual " << OrderMagResidual << " orders of magnitude."<< endl;
           cout << "The minimum value for the adjoint density residual is 10^(" << MinLogResidual<< ")."<< endl;
         }
+
+      }
+
+      if(Wnd_Cauchy_Crit == true && Time_Domain == true && SinglezoneDriver) {
+          if (!ContinuousAdjoint && !DiscreteAdjoint){
+            if(WndConvField != ""){
+                cout << "Cauchy convergence criteria for windowed time average of " << WndConvField << " using "
+                     << Wnd_Cauchy_Elems << " elements and epsilon " << Wnd_Cauchy_Eps << "."<< endl
+                     << "Residual based coefficients use the the residuum " << WndMinLogResidual << "." << endl;
+            }
+            else {
+                cout << "Warning: No feasible function for application of the convergence criterion is chosen." << endl;
+            }
+          }
+
+          /*if (ContinuousAdjoint || DiscreteAdjoint)
+            switch (Cauchy_Func_AdjFlow) {
+              case SENS_GEOMETRY: cout << "Cauchy criteria for geo. sensitivity using "
+                << Cauchy_Elems << " elements and epsilon " <<Cauchy_Eps<< "."<< endl; break;
+              case SENS_MACH: cout << "Cauchy criteria for Mach number sensitivity using "
+                << Cauchy_Elems << " elements and epsilon " <<Cauchy_Eps<< "."<< endl; break;
+            }*/
+          cout << "Start convergence criteria at iteration " << StartWindowIteration + Wnd_StartConv_Iter<< "."<< endl;
 
       }
 

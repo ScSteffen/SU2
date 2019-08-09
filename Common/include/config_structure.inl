@@ -1509,9 +1509,17 @@ inline unsigned short CConfig::GetCauchy_Func_AdjFlow(void) { return Cauchy_Func
 
 inline unsigned short CConfig::GetCauchy_Elems(void) { return Cauchy_Elems; }
 
+inline unsigned short CConfig::GetWnd_Cauchy_Elems(void) { return Wnd_Cauchy_Elems; }
+
 inline unsigned long CConfig::GetStartConv_Iter(void) { return StartConv_Iter; }
 
+inline unsigned long CConfig::GetWnd_StartConv_Iter(void) { return Wnd_StartConv_Iter; }
+
 inline su2double CConfig::GetCauchy_Eps(void) { return Cauchy_Eps; }
+
+inline su2double CConfig::GetWnd_Cauchy_Eps(void) { return Wnd_Cauchy_Eps; }
+
+inline bool CConfig::GetWnd_Cauchy_Crit(void) {return Wnd_Cauchy_Crit;}
 
 inline su2double CConfig::GetDelta_UnstTimeND(void) { return Delta_UnstTimeND; }
 
@@ -1540,6 +1548,8 @@ inline void CConfig::SetDV_Value(unsigned short val_dv, unsigned short val_ind, 
 inline su2double CConfig::GetOrderMagResidual(void) { return OrderMagResidual; }
 
 inline su2double CConfig::GetMinLogResidual(void) { return MinLogResidual; }
+
+inline su2double CConfig::GetWndMinLogResidual(void) { return WndMinLogResidual;}
 
 inline su2double CConfig::GetDamp_Engine_Inflow(void) { return Damp_Engine_Inflow; }
 
@@ -2057,6 +2067,8 @@ inline su2double CConfig::GetUQ_URLX(void) {return uq_urlx; }
 inline bool CConfig::GetUQ_Permute(void) { return uq_permute; }
 
 inline string CConfig::GetConv_Field(){ return ConvField; }
+
+inline string CConfig::GetWndConv_Field(void) { return WndConvField; }
 
 inline void  CConfig::Set_StartTime(su2double starttime){StartTime = starttime;}
 
