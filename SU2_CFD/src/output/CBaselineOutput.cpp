@@ -41,9 +41,7 @@
 #include "../../../Common/include/geometry_structure.hpp"
 #include "../../include/solver_structure.hpp"
 
-CBaselineOutput::CBaselineOutput(CConfig *config, CGeometry *geometry, CSolver *solver, unsigned short val_iZone) : COutput(config) {
-
-  nDim = geometry->GetnDim();
+CBaselineOutput::CBaselineOutput(CConfig *config, unsigned short nDim, CSolver* solver) : COutput(config, nDim) {
   
   unsigned short iField = 0;
 
@@ -94,16 +92,15 @@ void CBaselineOutput::SetVolumeOutputFields(CConfig *config){
   }
   
   // Grid coordinates
-  
-  AddVolumeOutput(RequestedVolumeFields[0], RequestedVolumeFields[0], "COORDINATES");
-  AddVolumeOutput(RequestedVolumeFields[1], RequestedVolumeFields[1], "COORDINATES");
+  AddVolumeOutput(RequestedVolumeFields[0], RequestedVolumeFields[0], "COORDINATES", "x-component of the coordinate vector");
+  AddVolumeOutput(RequestedVolumeFields[1], RequestedVolumeFields[1], "COORDINATES", "y-component of the coordinate vector");
   if (nDim == 3)
-    AddVolumeOutput(RequestedVolumeFields[2], RequestedVolumeFields[2], "COORDINATES");
+    AddVolumeOutput(RequestedVolumeFields[2], RequestedVolumeFields[2], "COORDINATES", "z-component of the coordinate vector");
 
   // Add all the remaining fields
   
   for (iField = nDim; iField < nRequestedVolumeFields; iField++){
-    AddVolumeOutput(RequestedVolumeFields[iField], RequestedVolumeFields[iField], "SOLUTION");
+    AddVolumeOutput(RequestedVolumeFields[iField], RequestedVolumeFields[iField], "SOLUTION","");
   }
   
 }

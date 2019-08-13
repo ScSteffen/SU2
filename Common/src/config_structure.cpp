@@ -802,6 +802,8 @@ void CConfig::SetConfig_Options() {
   addEnumOption("PHYSICAL_PROBLEM", Kind_Solver, Solver_Map, NO_SOLVER);
   /*!\brief MULTIZONE \n DESCRIPTION: Enable multizone mode \ingroup Config*/  
   addBoolOption("MULTIZONE", Multizone_Problem, NO);
+  /*!\brief DRY_RUN \n Description: Use dry-run mode to run construction of driver without reading geometry */
+  addBoolOption("DRY_RUN", dry_run, NO);
   /*!\brief PHYSICAL_PROBLEM_ZONEWISE \n DESCRIPTION: Physical governing equations for each zone \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
   addEnumListOption("PHYSICAL_PROBLEM_ZONEWISE", nZoneSpecified, Kind_Solver_PerZone, Solver_Map);
   /*!\brief PHYSICAL_PROBLEM \n DESCRIPTION: Physical governing equations \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
@@ -4418,7 +4420,7 @@ void CConfig::SetMarkers(unsigned short val_software) {
 
   unsigned short iMarker_All, iMarker_CfgFile, iMarker_Euler, iMarker_Custom,
   iMarker_FarField, iMarker_SymWall, iMarker_PerBound,
-  iMarker_NearFieldBound, iMarker_InterfaceBound, iMarker_Fluid_InterfaceBound, iMarker_Dirichlet,
+  iMarker_NearFieldBound, iMarker_Fluid_InterfaceBound, iMarker_Dirichlet,
   iMarker_Inlet, iMarker_Riemann, iMarker_Giles, iMarker_Outlet, iMarker_Isothermal,
   iMarker_HeatFlux, iMarker_EngineInflow, iMarker_EngineExhaust, iMarker_Damper,
   iMarker_Displacement, iMarker_Load, iMarker_FlowLoad, iMarker_Neumann, iMarker_Internal,

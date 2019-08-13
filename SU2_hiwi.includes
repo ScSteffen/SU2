@@ -64,3 +64,10 @@ externals/tecio/boost/predef/other
 externals/tecio/boost/predef/platform
 externals/tecio/teciompisrc
 externals/tecio/teciosrc
+SU2_CFD/src/output
+SU2_CFD/src/output/filewriter
+SU2_CFD/include
+SU2_CFD/include/output/filewriter
+SU2_CFD/include/variables
+SU2_CFD/include/drivers
+SU2_CFD/include/output

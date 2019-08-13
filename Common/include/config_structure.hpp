@@ -1089,6 +1089,8 @@ private:
   unsigned short eig_val_comp;  /*!< \brief Parameter used to determine type of eigenvalue perturbation */
   su2double uq_urlx;            /*!< \brief Under-relaxation factor */
   bool uq_permute;              /*!< \brief Permutation of eigenvectors */
+  
+  bool dry_run;                 /*!< Run driver construction with dummy geometry class */
 
   
   /*!
@@ -9156,6 +9158,12 @@ public:
   bool GetWrt_ForcesBreakdown(void);
 
   /*!
+   * \brief Boolean to check whether dry run mode is enabled
+   * \return YES if dry run mode is enabled.
+   */
+  bool GetDryRun();
+
+  /*!
    * \brief Get the number of screen output variables requested (maximum 6)
    */
   unsigned short GetnScreenOutput(void);
@@ -9213,7 +9221,6 @@ public:
    * \return 
    */
   su2double* GetScreen_Wrt_Freq();
-  
 };
 
 #include "config_structure.inl"

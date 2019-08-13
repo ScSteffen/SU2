@@ -1,5 +1,4 @@
-su2_cfd_src = files(['driver_adjoint_singlezone.cpp',
-                     'solver_direct_transition.cpp',
+su2_cfd_src = files(['solver_direct_transition.cpp',
                      'solver_adjoint_turbulent.cpp',
                      'integration_structure.cpp',
                      'solver_direct_mean_fem.cpp',
@@ -13,8 +12,6 @@ su2_cfd_src = files(['driver_adjoint_singlezone.cpp',
                      'iteration_structure.cpp',
                      'fluid_model_inc.cpp',
                      'solver_adjoint_mean.cpp',
-                     'driver_structure.cpp',
-                     'driver_direct_multizone.cpp',
                      'solver_adjoint_elasticity.cpp',
                      'solver_structure.cpp',
                      'numerics_direct_transition.cpp',
@@ -31,7 +28,6 @@ su2_cfd_src = files(['driver_adjoint_singlezone.cpp',
                      'numerics_direct_heat.cpp',
                      'fluid_model_ppr.cpp',
                      'numerics_direct_elasticity.cpp',
-                     'driver_direct_singlezone.cpp',
                      'numerics_direct_turbulent.cpp',
                      'numerics_direct_elasticity_linear.cpp',
                      'python_wrapper_structure.cpp',
@@ -75,7 +71,7 @@ su2_cfd_src += files(['output/CAdjElasticityOutput.cpp',
 
 su2_cfd_src += files(['variables/CIncNSVariable.cpp',
                      'variables/CTransLMVariable.cpp',
-	             'variables/CAdjEulerVariable.cpp',
+	                   'variables/CAdjEulerVariable.cpp',
                      'variables/CHeatFVMVariable.cpp',
                      'variables/CTurbVariable.cpp',
                      'variables/CAdjNSVariable.cpp',
@@ -92,25 +88,32 @@ su2_cfd_src += files(['variables/CIncNSVariable.cpp',
                      'variables/CIncEulerVariable.cpp',
                      'variables/CEulerVariable.cpp'])
 
+su2_cfd_src += files(['drivers/CDriver.cpp',
+                      'drivers/CMultizoneDriver.cpp',
+                      'drivers/CSinglezoneDriver.cpp',
+                      'drivers/CDiscAdjSinglezoneDriver.cpp',
+                      'drivers/CDummyDriver.cpp'])
 
-su2_cfd = executable('SU2_CFD',
-                     su2_cfd_src, 
-		     install : true, 
-		     dependencies : [su2_deps, common_dep], 
-		     cpp_args:  ['-fPIC'] + [su2_cpp_args])
+if get_option('enable-normal')
+  su2_cfd = executable('SU2_CFD',
+                       su2_cfd_src, 
+      		       install : true, 
+		       dependencies : [su2_deps, common_dep], 
+		       cpp_args:  ['-fPIC'] + [default_warning_flags, su2_cpp_args])
+endif
 
 if get_option('enable-autodiff')
   su2_cfd_ad = executable('SU2_CFD_AD',
                           su2_cfd_src,
 			  install : true, 
 			  dependencies : [su2_deps, codi_dep, commonAD_dep], 
-			  cpp_args: ['-fPIC'] + [su2_cpp_args, codi_rev_args])
+			  cpp_args: ['-fPIC'] + [default_warning_flags, su2_cpp_args, codi_rev_args])
 endif
 
 if get_option('enable-directdiff')
-  su2_cfd_dd = executable('SU2_CFD_DD',
+  su2_cfd_dd = executable('SU2_CFD_DIRECTDIFF',
                           su2_cfd_src,
 			  install : true, 
 			  dependencies : [su2_deps, codi_dep, commonDD_dep], 
-			  cpp_args: ['-fPIC'] + [su2_cpp_args, codi_for_args])
+			  cpp_args: ['-fPIC'] + [default_warning_flags, su2_cpp_args, codi_for_args])
 endif

@@ -37,7 +37,7 @@
 
 #include "../../include/output/CDriverOutput.hpp"
 
-CDriverOutput::CDriverOutput(CConfig* driver_config, CConfig** config) : COutput(driver_config) {
+CDriverOutput::CDriverOutput(CConfig* driver_config, CConfig** config, unsigned short nDim) : COutput(driver_config, nDim) {
 
   unsigned short iZone = 0;
   rank = SU2_MPI::GetRank();
@@ -129,9 +129,9 @@ void CDriverOutput::SetMultizoneHistoryOutputFields(COutput **output, CConfig **
   string name, header, group;
 
   if (config[ZONE_0]->GetTime_Domain()){
-    AddHistoryOutput("TIME_ITER", "Time_Iter", FORMAT_INTEGER,  "ITER");
+    AddHistoryOutput("TIME_ITER", "Time_Iter", FORMAT_INTEGER,  "ITER", "Time iteration index");
   }
-  AddHistoryOutput("OUTER_ITER", "Outer_Iter", FORMAT_INTEGER,  "ITER");
+  AddHistoryOutput("OUTER_ITER", "Outer_Iter", FORMAT_INTEGER,  "ITER", "Outer iteration index");
   
   
   /*--- Set the fields ---*/
@@ -152,7 +152,7 @@ void CDriverOutput::SetMultizoneHistoryOutputFields(COutput **output, CConfig **
         header = ZoneHistoryFields[ZoneHistoryNames[iField]].FieldName + "[" + PrintingToolbox::to_string(iZone) + "]";
         group  = ZoneHistoryFields[ZoneHistoryNames[iField]].OutputGroup + "[" + PrintingToolbox::to_string(iZone) + "]";
         
-        AddHistoryOutput(name, header, ZoneHistoryFields[ZoneHistoryNames[iField]].ScreenFormat, group, ZoneHistoryFields[ZoneHistoryNames[iField]].FieldType );
+        AddHistoryOutput(name, header, ZoneHistoryFields[ZoneHistoryNames[iField]].ScreenFormat, group, "", ZoneHistoryFields[ZoneHistoryNames[iField]].FieldType );
       }
     }
   }

@@ -24,16 +24,17 @@ common_src =files(['geometry_structure_fem_part.cpp',
            'mpi_structure.cpp',
            'fem_cgns_elements.cpp'])
 
-subdir('toolboxes')
 subdir('linear_algebra')
-common     = static_library('SU2Common', 
-                            common_src,
-                            install : false, 
-			    dependencies : su2_deps, 
-			    cpp_args: su2_cpp_args)
-
-common_dep = declare_dependency(link_with: common,
-                                include_directories : common_include)
+subdir('toolboxes')
+if get_option('enable-normal')
+  common = static_library('SU2Common', 
+                          common_src,
+                          install : false, 
+	                  dependencies : su2_deps, 
+	 		  cpp_args: [default_warning_flags, su2_cpp_args])
+  common_dep = declare_dependency(link_with: common,
+                                  include_directories : common_include)
+endif
 
 if get_option('enable-autodiff')
   
@@ -41,7 +42,7 @@ if get_option('enable-autodiff')
                             common_src,
                             install : false, 
 			    dependencies : [su2_deps, codi_dep], 
-			    cpp_args: [su2_cpp_args, codi_rev_args])
+			    cpp_args: [default_warning_flags, su2_cpp_args, codi_rev_args])
 
   commonAD_dep = declare_dependency(link_with: commonAD, 
                                     include_directories : common_include)
@@ -54,7 +55,7 @@ if get_option('enable-directdiff')
                             common_src,
                             install : false, 
 			    dependencies : [su2_deps, codi_dep], 
-			    cpp_args: [su2_cpp_args, codi_for_args])
+			    cpp_args: [default_warning_flags, su2_cpp_args, codi_for_args])
 
   commonDD_dep = declare_dependency(link_with: commonDD, 
                                     include_directories : common_include)
