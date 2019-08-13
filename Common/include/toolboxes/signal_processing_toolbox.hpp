@@ -1,4 +1,4 @@
-    #pragma once
+#pragma once
 
 #include "../datatype_structure.hpp"
 #include "../../include/option_structure.hpp"
@@ -38,11 +38,12 @@ namespace Signal_Processing {
         }
     }
 
-    su2double GetWndWeight(int fctIdx, su2double time, su2double endTime){ 	/*!< Window function evalutation at time with endTime */
+    /*! \brief Returns the value of a windowing function given by fctIdx at time CurTime with given TimeSpan (i.e. timeSpan=end-time, if one starts witz 0.) */
+    su2double GetWndWeight(int fctIdx, su2double CurTime, su2double TimeSpan){
         switch (fctIdx){
-          case 1: return HannWindow(time, endTime);
-          case 2: return HannSquaredWindow(time, endTime);
-          case 3: return BumpWindow(time, endTime);
+          case 1: return HannWindow(CurTime, TimeSpan);
+          case 2: return HannSquaredWindow(CurTime, TimeSpan);
+          case 3: return BumpWindow(CurTime, TimeSpan);
           default:return 1.0;
         }
     }
@@ -65,7 +66,7 @@ namespace Signal_Processing {
     }
 
     su2double WindowedUpdate(int fctIdx){ //Computes a windowed time average (integral)
-      if(values.size()>1){
+      if(values.size()>0){
           switch (fctIdx){
             case 1: hannWndVal      = HannWindowing();        return hannWndVal;
             case 2: hannSqWndVal    = HannSquaredWindowing(); return hannSqWndVal;
@@ -77,40 +78,40 @@ namespace Signal_Processing {
     }
 
   private:
-    //Using Trapezoidal rule
+    //Using Midpoint rule for consistentcy with adjoint solve
     su2double NoWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<values.size()-1; i++){
-          wnd_timeAvg+=0.5*(values[i+1]+values[i]);
+      for(unsigned i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i];
         }
-      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
+      return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double HannWindowing(){
       su2double wnd_timeAvg = 0.0;
       su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size()-1; i++){
-          wnd_timeAvg+=0.5*(values[i+1]*HannWindow(static_cast<su2double>(i+1),endTime)+values[i]*HannWindow(static_cast<su2double>(i), endTime));
+      for(unsigned i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*HannWindow(static_cast<su2double>(i), endTime);
       }
-      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
+      return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double HannSquaredWindowing(){
       su2double wnd_timeAvg = 0.0;
       su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size()-1; i++){
-          wnd_timeAvg+=0.5*(values[i+1]*HannSquaredWindow(static_cast<su2double>(i+1),endTime)+values[i]*HannSquaredWindow(static_cast<su2double>(i),endTime));
+      for(unsigned i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*HannSquaredWindow(static_cast<su2double>(i),endTime);
         }
-      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
+      return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double BumpWindowing(){
       su2double wnd_timeAvg = 0.0;
       su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size()-1; i++){
-          wnd_timeAvg+=0.5*(values[i+1]*BumpWindow(static_cast<su2double>(i+1),endTime)+values[i]*BumpWindow(static_cast<su2double>(i),endTime));
+      for(unsigned i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*BumpWindow(static_cast<su2double>(i),endTime);
         }
-      return wnd_timeAvg/static_cast<su2double>(values.size()-1);
+      return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double HannWindow(su2double i, su2double endTime){

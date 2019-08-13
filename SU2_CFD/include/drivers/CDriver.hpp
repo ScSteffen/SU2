@@ -102,7 +102,7 @@ protected:
        fsi,                                     /*!< \brief FSI simulation flag.*/
        fem_solver;                              /*!< \brief FEM fluid solver simulation flag. */
   CIteration ***iteration_container;             /*!< \brief Container vector with all the iteration methods. */
-  COutput **output_container;                              /*!< \brief Pointer to the COutput class. */
+  COutput **output_container;                    /*!< \brief Pointer to the COutput class. */
   CIntegration ****integration_container;        /*!< \brief Container vector with all the integration methods. */
   CGeometry ****geometry_container;              /*!< \brief Geometrical definition of the problem. */
   CSolver *****solver_container;                 /*!< \brief Container vector with all the solutions. */

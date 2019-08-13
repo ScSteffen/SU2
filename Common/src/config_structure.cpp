@@ -1349,7 +1349,7 @@ void CConfig::SetConfig_Options() {
   /* DESCRIPTION: Starting direct solver iteration for the unsteady adjoint */
   addLongOption("UNST_ADJOINT_ITER", Unst_AdjointIter, 0);
   /* DESCRIPTION: Number of iterations to average the objective */
-  addLongOption("ITER_AVERAGE_OBJ", Iter_Avg_Objective , 0);
+  addUnsignedLongOption("ITER_AVERAGE_OBJ", Iter_Avg_Objective , 0);
   /* DESCRIPTION: Iteration number to begin unsteady restarts (structural analysis) */
   addLongOption("DYN_RESTART_ITER", Dyn_RestartIter, 0);
   /* DESCRIPTION: Time discretization */
@@ -2392,10 +2392,10 @@ void CConfig::SetConfig_Options() {
   addUnsignedLongOption("WRT_SURF_FREQ_DUALTIME", Wrt_Surf_Freq_DualTime, 1);
 
   /* DESCRIPTION: Starting Iteration for windowing approach */
-  addUnsignedLongOption("START_ITER_WND", StartWindowIteration, 1);
+  addUnsignedLongOption("START_ITER_WND", StartWindowIteration, 0);
 
-  /* DESCRIPTION: Window (weight) function for the cost-functional */
-  addEnumOption("WINDOW_FUNCTION", Type_WindowFct,Window_Map, SQUARED);
+  /* DESCRIPTION: Window (weight) function for the cost-functional in the reverse sweep */
+  addEnumOption("WINDOW_FUNCTION", Type_WindowFct,Window_Map, SQUARE);
 
   /* DESCRIPTION: DES Constant */
   addDoubleOption("DES_CONST", Const_DES, 0.65);
@@ -5036,6 +5036,7 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
   if (DiscreteAdjoint) {
      cout <<"Discrete Adjoint equations using Algorithmic Differentiation " << endl;
      cout <<"based on the physical case: ";
+
   }
     switch (Kind_Solver) {
       case EULER: case DISC_ADJ_EULER: case FEM_EULER: case DISC_ADJ_FEM_EULER:

@@ -48,14 +48,6 @@
 class CSinglezoneDriver : public CDriver {
 
     unsigned long TimeIter;
-    std::vector<su2double> wnd_values;   /*!< \brief Windowed output values of each time_Iter. Stored to check cauchy property for convergence.*/
-    su2double *WndCauchy_Serie;          /*!< \brief Complete Cauchy serial. */
-    su2double WndOld_Func,  /*!< \brief Old value of the objective function (the function which is monitored). */
-    WndNew_Func,      /*!< \brief Current value of the objective function (the function which is monitored). */
-    WndCauchy_Func,      /*!< \brief Current value of the convergence indicator at one iteration. */
-    WndCauchy_Value;  /*!< \brief Summed value of the convergence indicator. */
-
-
 public:
 
   /*!
@@ -113,5 +105,4 @@ public:
    * \param ExtIter
    */
   bool Monitor(unsigned long ExtIter);
-
 };

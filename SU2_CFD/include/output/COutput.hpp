@@ -83,7 +83,6 @@ protected:
   bool no_writing;
 
 protected:
-
   int rank, 	  /*!< \brief MPI Rank. */
   size;       	/*!< \brief MPI Size. */
 
@@ -189,6 +188,14 @@ protected:
   Convergence_FullMG;    /*!< \brief To indicate if the Full Multigrid has converged and it is necessary to add a new level. */
   su2double InitResidual;  /*!< \brief Initial value of the residual to evaluate the convergence level. */
   string Conv_Field;
+
+  std::vector<su2double> wnd_values;   /*!< \brief Windowed output values of each time_Iter. Stored to check cauchy property for convergence.*/
+  su2double *WndCauchy_Serie;          /*!< \brief Complete Cauchy serial. */
+  su2double WndOld_Func,  /*!< \brief Old value of the objective function (the function which is monitored). */
+  WndNew_Func,      /*!< \brief Current value of the objective function (the function which is monitored). */
+  WndCauchy_Func,      /*!< \brief Current value of the convergence indicator at one iteration. */
+  WndCauchy_Value;  /*!< \brief Summed value of the convergence indicator. */
+  bool TimeConvergence; /*!< \brief To indicate, if the windowed time average of the time loop has converged*/
 public:
   
   /*----------------------------- Public member functions ----------------------------*/
@@ -383,9 +390,17 @@ public:
     return HistoryOutput_Map;
   }
   
-  bool Convergence_Monitoring(CConfig *config, unsigned long Iteration);
+  bool MonitorConvergence(CConfig *config, unsigned long Iteration);
 
-  bool GetConvergence() {return Convergence;}
+  /*!
+   * \brief MonitorTimeConvergence
+   * \param config, Iteration
+   */
+  bool MonitorTimeConvergence(CConfig *config, unsigned long Iteration);
+
+  bool GetConvergence() {return Convergence;} /*! \brief Indicates, if the inner fix-point iterator is converged  */
+
+  bool GetTimeConvergence() {return TimeConvergence;} /*! \brief Indicates, if the time loop is converged. COnvergence criterion: Windowed time average */
 
   void SetConvergence(bool conv) {Convergence = conv;}
   

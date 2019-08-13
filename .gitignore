@@ -78,3 +78,12 @@ TestData
 
 Mercurial
 .hg*
+
+#QT Creator files
+SU2_thesis.cflags
+SU2_thesis.config
+SU2_thesis.creator
+SU2_thesis.creator.user
+SU2_thesis.cxxflags
+SU2_thesis.files
+SU2_thesis.includes

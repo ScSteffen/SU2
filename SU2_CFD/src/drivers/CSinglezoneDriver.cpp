@@ -47,11 +47,9 @@ CSinglezoneDriver::CSinglezoneDriver(char* confFile,
 
   /*--- Initialize the counter for TimeIter ---*/
   TimeIter = 0;
-  WndCauchy_Serie = new su2double[config_container[ZONE_0]->GetWnd_Cauchy_Elems()];
 }
 
 CSinglezoneDriver::~CSinglezoneDriver(void) {
-    delete [] WndCauchy_Serie;
 }
 
 void CSinglezoneDriver::StartSolver() {
@@ -340,9 +338,7 @@ bool CSinglezoneDriver::Monitor(unsigned long ExtIter){
   
   TimeDomain = config_container[ZONE_0]->GetTime_Domain();
   
-  InnerConvergence = output[ZONE_0]->GetConvergence();
-  if(TimeIter >= config_container[ZONE_0]->GetStartWindowIteration()) wnd_values.push_back(output[ZONE_0]->GetHistoryFieldValue("BUMP_WND_AVG_"+ config_container[ZONE_0]->GetWndConv_Field()));
-
+  InnerConvergence = output_container[ZONE_0]->GetConvergence();
 
   /*--- Check whether the inner solver has converged --- */
 
@@ -356,8 +352,7 @@ bool CSinglezoneDriver::Monitor(unsigned long ExtIter){
   }
 
   /*--- Check whether the outer time integration has reached the final time ---*/
-  OuterConvergence = false;
-  if(config_container[ZONE_0]->GetWnd_Cauchy_Crit()) OuterConvergence = MonitorOuterConvergence(config_container[ZONE_0], TimeIter);
+  OuterConvergence = output_container[ZONE_0]->GetTimeConvergence();
 
   StopCalc = (CurTime >= MaxTime) || OuterConvergence;
 
@@ -380,74 +375,3 @@ bool CSinglezoneDriver::Monitor(unsigned long ExtIter){
   return StopCalc;
 }
 
-bool CSinglezoneDriver::MonitorOuterConvergence(CConfig *config, unsigned long Iteration) {
-
-  unsigned short iCounter;
-
-  bool Convergence = false;
-
-  string WndConv_Field = config->GetWndConv_Field();
-
-  if( output[ZONE_0]->GetHistoryFields().count(WndConv_Field) > 0 ){
-
-    su2double monitor = output[ZONE_0]->GetHistoryFields()["BUMP_WND_AVG_" + WndConv_Field].Value; // Use Bump window
-
-    /*--- Cauchy based convergence criteria ---*/
-
-    if (output[ZONE_0]->GetHistoryFields()[WndConv_Field].FieldType == output[ZONE_0]->GetHistoryFieldType(2)/*TYPE_COEFFICIENT*/) {
-
-      if (Iteration == 0){
-        for (iCounter = 0; iCounter < config->GetWnd_Cauchy_Elems(); iCounter++){
-          WndCauchy_Serie[iCounter] = 0.0;
-        }
-        WndNew_Func = monitor;
-      }
-
-      WndOld_Func = WndNew_Func;
-      WndNew_Func = monitor;
-      WndCauchy_Func = fabs(WndNew_Func - WndOld_Func);
-
-      WndCauchy_Serie[Iteration % config->GetWnd_Cauchy_Elems()] = WndCauchy_Func;
-      WndCauchy_Value = 1.0;
-      if (Iteration >= config->GetWnd_Cauchy_Elems()){
-        WndCauchy_Value = 0.0;
-        for (iCounter = 0; iCounter < config->GetCauchy_Elems(); iCounter++)
-          WndCauchy_Value += WndCauchy_Serie[iCounter];
-      }
-
-      if (WndCauchy_Value >= config->GetWnd_Cauchy_Eps()) { Convergence = false;}
-      else { Convergence = true; WndNew_Func = 0.0;}
-
-      //SetHistoryOutputValue("CAUCHY", WndCauchy_Value);
-      if(rank == MASTER_NODE) cout << "WndCauchy_Value for BUMP_WND_AVG_"<< WndConv_Field << " : " << WndCauchy_Value << endl;
-    }
-
-    /*--- Residual based convergence criteria ---*/
-
-    if (output[ZONE_0]->GetHistoryFields()[WndConv_Field].FieldType == output[ZONE_0]->GetHistoryFieldType(0) /*TYPE_RESIDUAL*/ || output[ZONE_0]->GetHistoryFields()[WndConv_Field].FieldType == output[ZONE_0]->GetHistoryFieldType(1)/*TYPE_AUTORESIDUAL*/) {
-
-      /*--- Check the convergence ---*/
-
-      if ((monitor <= config->GetWndMinLogResidual())) { Convergence = true; }
-      else { Convergence = false; }
-
-    }
-
-    /*--- Do not apply any convergence criteria of the number
-     of iterations is less than a particular value ---*/
-
-    if (Iteration < config->GetStartWindowIteration() + config->GetWnd_StartConv_Iter() ) {
-      Convergence = false;
-    }
-
-    /*--- Apply the same convergence criteria to all the processors ---*/
-
-    /*--- Stop the simulation in case a nan appears, do not save the solution ---*/
-
-    if (monitor != monitor) {
-      SU2_MPI::Error("SU2 has diverged (NaN detected).", CURRENT_FUNCTION);
-    }
-
-  }
-  return Convergence;
-}

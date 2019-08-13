@@ -406,7 +406,7 @@ private:
   unsigned long Dyn_nIntIter;			/*!< \brief Number of internal iterations (Newton-Raphson Method for nonlinear structural analysis). */
   long Unst_RestartIter;			/*!< \brief Iteration number to restart an unsteady simulation (Dual time Method). */
   long Unst_AdjointIter;			/*!< \brief Iteration number to begin the reverse time integration in the direct solver for the unsteady adjoint. */
-  long Iter_Avg_Objective;			/*!< \brief Iteration the number of time steps to be averaged, counting from the back */
+  unsigned long Iter_Avg_Objective;			/*!< \brief Iteration the number of time steps to be averaged, counting from the back */
   long Dyn_RestartIter;                         /*!< \brief Iteration number to restart a dynamic structural analysis. */
   su2double PhysicalTime;                       /*!< \brief Physical time at the current iteration in the solver for unsteady problems. */
   unsigned short nLevels_TimeAccurateLTS;       /*!< \brief Number of time levels for time accurate local time stepping. */
@@ -9188,12 +9188,12 @@ public:
    */
   unsigned short GetnVolumeOutput(void);
 
-  /*
+  /*!
   * \brief Get the history output field iField
   */
   string GetVolumeOutput_Field(unsigned short iField);
 
-  /*
+  /*!
   * \brief Get the convergence field for monitoring
   */
   string GetConv_Field();

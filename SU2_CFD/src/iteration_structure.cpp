@@ -777,6 +777,7 @@ bool CFluidIteration::Monitor(COutput *output,
 
 
 }
+
 void CFluidIteration::Postprocess(COutput *output,
                                   CIntegration ****integration,
                                   CGeometry ****geometry,
@@ -1130,6 +1131,7 @@ void CFluidIteration::InitializeVortexDistribution(unsigned long &nVortex, vecto
 
 CTurboIteration::CTurboIteration(CConfig *config) : CFluidIteration(config) { }
 CTurboIteration::~CTurboIteration(void) { }
+
 void CTurboIteration::Preprocess(COutput *output,
                                     CIntegration ****integration,
                                     CGeometry ****geometry,
@@ -1263,7 +1265,6 @@ void CFEMFluidIteration::Postprocess(COutput *output,
                  unsigned short val_iInst){}
 
 CHeatIteration::CHeatIteration(CConfig *config) : CIteration(config) { }
-
 CHeatIteration::~CHeatIteration(void) { }
 
 void CHeatIteration::Preprocess(COutput *output,

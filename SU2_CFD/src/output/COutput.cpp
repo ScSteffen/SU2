@@ -128,7 +128,14 @@ COutput::COutput(CConfig *config, unsigned short nDim) {
     Cauchy_Serie[iCounter] = 0.0;
 
   Convergence = false;
-  
+  TimeConvergence = false;
+
+  WndCauchy_Serie = new su2double[config->GetWnd_Cauchy_Elems()];
+  for (unsigned short iCounter = 0; iCounter < config->GetWnd_Cauchy_Elems(); iCounter++)
+    WndCauchy_Serie[iCounter] = 0.0;
+
+  WndCauchy_Value = 0.0;
+
   /*--- Initialize all convergence flags to false. ---*/
   
   Convergence        = false;
@@ -147,6 +154,7 @@ COutput::~COutput(void) {
   delete MultiZoneHeaderTable;
 
   delete [] Cauchy_Serie;
+  delete [] WndCauchy_Serie;
   
 }
 
@@ -171,10 +179,12 @@ void COutput::SetHistory_Output(CGeometry *geometry,
   
   LoadHistoryData(config, geometry, solver_container);
   
-  Convergence_Monitoring(config, curr_InnerIter);
-  
+  MonitorConvergence(config, curr_InnerIter);
+
   Postprocess_HistoryData(config);
-  
+
+  MonitorTimeConvergence(config, curr_TimeIter);
+
   /*--- Output using only the master node ---*/
   
   if (rank == MASTER_NODE && !no_writing) {
@@ -205,11 +215,12 @@ void COutput::SetHistory_Output(CGeometry *geometry,
   
   LoadHistoryData(config, geometry, solver_container);
   
-  Convergence_Monitoring(config, curr_InnerIter);  
+  MonitorConvergence(config, curr_InnerIter);
   
   Postprocess_HistoryData(config);
 
 }
+
 void COutput::SetMultizoneHistory_Output(COutput **output, CConfig **config, CConfig *driver_config, unsigned long TimeIter, unsigned long OuterIter){
   
   curr_TimeIter  = TimeIter;
@@ -221,7 +232,7 @@ void COutput::SetMultizoneHistory_Output(COutput **output, CConfig **config, CCo
   
   LoadMultizoneHistoryData(output, config);
   
-  Convergence_Monitoring(driver_config, curr_OuterIter);  
+  MonitorConvergence(driver_config, curr_OuterIter);
   
   /*--- Output using only the master node ---*/
   
@@ -242,6 +253,7 @@ void COutput::SetMultizoneHistory_Output(COutput **output, CConfig **config, CCo
   }
   
 }
+
 void COutput::SetCFL_Number(CSolver *****solver_container, CConfig **config, unsigned short val_iZone) {
   
   su2double CFLFactor = 1.0, power = 1.0, CFL = 0.0, CFLMin = 0.0, CFLMax = 0.0, Div = 1.0, Diff = 0.0, MGFactor[100];
@@ -372,7 +384,6 @@ void COutput::Load_Data(CGeometry *geometry, CConfig *config, CSolver** solver_c
   
 }
 
-
 void COutput::DeallocateData_Parallel(){
   
   if (data_sorter != NULL)
@@ -381,7 +392,6 @@ void COutput::DeallocateData_Parallel(){
   data_sorter = NULL;
   
 }
-
 
 void COutput::SetFileWriter(CConfig *config, CGeometry *geometry, CParallelDataSorter *sorter, CFileWriter *&filewriter, unsigned short format){
   
@@ -570,8 +580,7 @@ void COutput::SetVolume_Output(CGeometry *geometry, CConfig *config, unsigned sh
   
 }
 
-
-bool COutput::Convergence_Monitoring(CConfig *config, unsigned long Iteration) {
+bool COutput::MonitorConvergence(CConfig *config, unsigned long Iteration) {
 
   unsigned short iCounter;
     
@@ -671,9 +680,84 @@ bool COutput::Convergence_Monitoring(CConfig *config, unsigned long Iteration) {
   return Convergence;
 }
 
+bool COutput::MonitorTimeConvergence(CConfig *config, unsigned long TimeIteration) {
+  TimeConvergence = false;
+  bool Inner_IterConv = GetConvergence() || config->GetnInner_Iter()-1 <= curr_InnerIter; //Check, if Inner_Iter is converged
+
+  if(Inner_IterConv && TimeIteration >= config->GetStartWindowIteration()){
+
+     //wnd_values.push_back(GetHistoryFieldValue("BUMP_WND_AVG_"+ config->GetWndConv_Field()));
+
+     unsigned short iCounter;
+
+     string WndConv_Field = config->GetWndConv_Field();
+
+     if(GetHistoryFields().count(WndConv_Field) > 0 ){
+
+       su2double monitor = GetHistoryFields()["BUMP_WND_AVG_" + WndConv_Field].Value; // Use Bump window
+
+       /*--- Cauchy based convergence criteria ---*/
+
+       if (GetHistoryFields()[WndConv_Field].FieldType == GetHistoryFieldType(2)/*TYPE_COEFFICIENT*/) {
+
+         if (TimeIteration == config->GetStartWindowIteration()){
+           WndNew_Func = monitor;
+         }
+
+         WndOld_Func = WndNew_Func;
+         WndNew_Func = monitor;
+         WndCauchy_Func = fabs(WndNew_Func - WndOld_Func);
+
+         WndCauchy_Serie[TimeIteration % config->GetWnd_Cauchy_Elems()] = WndCauchy_Func;
+         WndCauchy_Value = 1.0;
+         if (TimeIteration >= config->GetWnd_Cauchy_Elems()+config->GetStartWindowIteration()){
+           WndCauchy_Value = 0.0;
+           for (iCounter = 0; iCounter < config->GetCauchy_Elems(); iCounter++)
+             WndCauchy_Value += WndCauchy_Serie[iCounter];
+         }
+
+         if (WndCauchy_Value >= config->GetWnd_Cauchy_Eps()) { TimeConvergence = false;}
+         else { TimeConvergence = true;}
+
+         SetHistoryOutputValue("TIME_WND_CAUCHY", WndCauchy_Value);
+       }
+
+       /*--- Residual based convergence criteria ---*/
+
+       if (GetHistoryFields()[WndConv_Field].FieldType == GetHistoryFieldType(0) /*TYPE_RESIDUAL*/ || GetHistoryFields()[WndConv_Field].FieldType == GetHistoryFieldType(1)/*TYPE_AUTORESIDUAL*/) {
+
+         /*--- Check the convergence ---*/
+
+         if ((monitor <= config->GetWndMinLogResidual())) { TimeConvergence = true; }
+         else { TimeConvergence = false; }
+
+       }
+
+       /*--- Do not apply any convergence criterion if the number
+        of iterations is less than a particular value ---*/
+
+       if (TimeIteration < config->GetStartWindowIteration() + config->GetWnd_StartConv_Iter())TimeConvergence = false;
+
+       /*--- Do not apply any convergence criterion if the option is disabled. */
+
+       if(!config->GetWnd_Cauchy_Crit()) TimeConvergence = false;
+
+       /*--- Stop the simulation in case a nan appears, do not save the solution ---*/
+
+       if (monitor != monitor) {
+         SU2_MPI::Error("SU2 has diverged (NaN detected).", CURRENT_FUNCTION);
+       }
+
+     }
+  }
+  else if(TimeIteration == 0){
+      SetHistoryOutputValue("TIME_WND_CAUCHY", 1.0);
+    }
+  return TimeConvergence;
+}
+
 void COutput::SetHistoryFile_Header(CConfig *config) { 
 
-  
   if ((config->GetOutput_FileFormat() == TECPLOT) ||
       (config->GetOutput_FileFormat() == TECPLOT_BINARY) ||
       (config->GetOutput_FileFormat() == FIELDVIEW) ||
@@ -723,7 +807,6 @@ void COutput::SetHistoryFile_Header(CConfig *config) {
   
 }
 
-
 void COutput::SetHistoryFile_Output(CConfig *config) { 
   
   stringstream out;
@@ -764,7 +847,6 @@ void COutput::SetScreen_Header(CConfig *config) {
     MultiZoneHeaderTable->PrintHeader();
   ConvergenceTable->PrintHeader();
 }
-
 
 void COutput::SetScreen_Output(CConfig *config) {
   
@@ -1338,10 +1420,10 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
       AddHistoryOutput("D_BUMP_WND_AVG_" + HistoryOutput_List[iField]   , "d_bump_wnd_avg[" + currentField.FieldName + "]"  , currentField.ScreenFormat, "D_BUMP_WND_AVG_" + currentField.OutputGroup, "Time averaged bump window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
     }
   }
-  
-  if (HistoryOutput_Map[Conv_Field].FieldType == TYPE_COEFFICIENT){
-    AddHistoryOutput("CAUCHY", "C["  + HistoryOutput_Map[Conv_Field].FieldName + "]", FORMAT_SCIENTIFIC, "CAUCHY","Cauchy residual value of field set with CONV_FIELD." ,TYPE_AUTO_COEFFICIENT);
-  }
+
+  AddHistoryOutput("CAUCHY", "C["  + HistoryOutput_Map[Conv_Field].FieldName + "]", FORMAT_SCIENTIFIC, "CAUCHY","Cauchy residual value of field set with CONV_FIELD." ,TYPE_AUTO_COEFFICIENT);
+  AddHistoryOutput("TIME_WND_CAUCHY", "t_wnd_C[" + HistoryOutput_Map[config->GetWndConv_Field()].FieldName+ "]", FORMAT_SCIENTIFIC, "TIME_WND_CAUCHY", "Cauchy residual value of field set with WND_CONV_FIELD.", TYPE_AUTO_COEFFICIENT);
+
 
 }
 
@@ -1503,7 +1585,6 @@ void COutput::LoadCommonHistoryData(CConfig *config){
   SetHistoryOutputValue("PHYS_TIME", UsedTime);
   
 }
-
 
 void COutput::PrintHistoryFields(){ 
   
