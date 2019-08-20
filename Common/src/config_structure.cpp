@@ -807,8 +807,6 @@ void CConfig::SetConfig_Options() {
   addEnumOption("SOLVER", Kind_Solver, Solver_Map, NO_SOLVER);
   /*!\brief MULTIZONE \n DESCRIPTION: Enable multizone mode \ingroup Config*/  
   addBoolOption("MULTIZONE", Multizone_Problem, NO);
-  /*!\brief DRY_RUN \n Description: Use dry-run mode to run construction of driver without reading geometry */
-  addBoolOption("DRY_RUN", dry_run, NO);
   /*!\brief PHYSICAL_PROBLEM_ZONEWISE \n DESCRIPTION: Physical governing equations for each zone \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
   addEnumListOption("PHYSICAL_PROBLEM_ZONEWISE", nZoneSpecified, Kind_Solver_PerZone, Solver_Map);
   /*!\brief PHYSICAL_PROBLEM \n DESCRIPTION: Physical governing equations \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
@@ -5915,13 +5913,11 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
 		}
   }
 	else {
-		switch (Time_Domain) {
-		  case NO:
-			cout << "Static structural analysis." << endl; break;
-		  case YES:
+		if (Time_Domain) {
+			cout << "Static structural analysis." << endl; 
+		 } else {
 			cout << "Dynamic structural analysis."<< endl;
 			cout << "Time step provided by the user for the dynamic analysis(s): "<< Delta_DynTime << "." << endl;
-			break;
 		}
 	}
 

@@ -504,16 +504,16 @@ void CIteration::Output(COutput *output,
       
       /*--- Write restart files ---*/
       
-      output->SetVolume_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], RestartFormat);
+      output->SetVolume_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], RestartFormat, false);
       
       /*--- Write visualization files ---*/
       
       if (Wrt_Vol)
-        output->SetVolume_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], OutputFormat);
+        output->SetVolume_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], OutputFormat, false);
       if (Wrt_Surf)
-        output->SetSurface_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], OutputFormat);
+        output->SetSurface_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], OutputFormat,false);
       if (Wrt_CSV)
-        output->SetSurface_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], CSV);    
+        output->SetSurface_Output(geometry[val_iZone][val_iInst][MESH_0], config[val_iZone], CSV, false);    
       
       output->DeallocateData_Parallel();      
     
@@ -1340,10 +1340,6 @@ void CHeatIteration::Solve(COutput *output,
                              CFreeFormDefBox*** FFDBox,
                              unsigned short val_iZone,
                              unsigned short val_iInst) {
-
-  /*--- Boolean to determine if we are running a steady or unsteady case ---*/
-  bool steady = (config[val_iZone]->GetTime_Marching() == STEADY);
-  bool unsteady = ((config[val_iZone]->GetTime_Marching() == DT_STEPPING_1ST) || (config[val_iZone]->GetTime_Marching() == DT_STEPPING_2ND));
 
   unsigned short Inner_Iter, nInner_Iter = config[val_iZone]->GetnInner_Iter();
   bool StopCalc = false;
@@ -2563,9 +2559,7 @@ bool CDiscAdjFluidIteration::Monitor(COutput *output,
     unsigned short val_iInst)     {
 
   bool StopCalc = false;
-  bool steady = (config[val_iZone]->GetTime_Marching() == STEADY);
-  bool output_history = false;
-
+  
 #ifndef HAVE_MPI
   StopTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
 #else

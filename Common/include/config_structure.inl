@@ -2054,8 +2054,6 @@ inline su2double CConfig::GetUQ_URLX(void) {return uq_urlx; }
 
 inline bool CConfig::GetUQ_Permute(void) { return uq_permute; }
 
-inline bool CConfig::GetDryRun() {return dry_run;}
-
 inline string CConfig::GetConv_Field(){ return ConvField; }
 
 inline string CConfig::GetWndConv_Field(void) { return WndConvField; }
