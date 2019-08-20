@@ -1442,10 +1442,10 @@ void CConfig::SetConfig_Options() {
   addEnumOption("CONV_CRITERIA", ConvCriteria, Converge_Crit_Map, RESIDUAL);
   /*!\brief RESIDUAL_REDUCTION \n DESCRIPTION: Residual reduction (order of magnitude with respect to the initial value)\n DEFAULT: 3.0 \ingroup Config*/
   addDoubleOption("RESIDUAL_REDUCTION", OrderMagResidual, 5.0);
-  /*!\brief RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
+  /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
-  /*!\brief WND_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -5.0 \ingroup Config*/
-  addDoubleOption("WND_RESIDUAL_MINVAL", WndMinLogResidual, -5.0);
+  /*!\brief WND_CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -5.0 \ingroup Config*/
+  addDoubleOption("WND_CONV_RESIDUAL_MINVAL", WndMinLogResidual, -5.0);
   /* DESCRIPTION: Residual reduction (order of magnitude with respect to the initial value) */
   addDoubleOption("RESIDUAL_REDUCTION_FSI", OrderMagResidualFSI, 3.0);
   /* DESCRIPTION: Min value of the residual (log10 of the residual) */
@@ -1468,18 +1468,18 @@ void CConfig::SetConfig_Options() {
   addEnumOption("RESIDUAL_CRITERIA_FEM", Res_FEM_CRIT, ResFem_Map, RESFEM_RELATIVE);
   /*!\brief RESIDUAL_FUNC_FLOW\n DESCRIPTION: Flow functional for the Residual criteria\n OPTIONS: See \link Residual_Map \endlink \n DEFAULT: RHO_RESIDUAL \ingroup Config*/
   addEnumOption("RESIDUAL_FUNC_FLOW", Residual_Func_Flow, Residual_Map, RHO_RESIDUAL);
-  /*!\brief STARTCONV_ITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
+  /*!\brief CONV_STARTITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
   addUnsignedLongOption("CONV_STARTITER", StartConv_Iter, 5);
-  /*!\brief WND_STARTCONV_ITER\n DESCRIPTION: Iteration number after START_ITER_WND  to begin convergence monitoring\n DEFAULT: 15 \ingroup Config*/
-  addUnsignedLongOption("WND_STARTCONV_ITER", Wnd_StartConv_Iter, 15);
-  /*!\brief CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
+  /*!\brief WND_CONV_STARTITER\n DESCRIPTION: Iteration number after START_ITER_WND  to begin convergence monitoring\n DEFAULT: 15 \ingroup Config*/
+  addUnsignedLongOption("WND_CONV_STARTITER", Wnd_StartConv_Iter, 15);
+  /*!\brief CONV_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
   addUnsignedShortOption("CONV_CAUCHY_ELEMS", Cauchy_Elems, 100);
-  /*!\brief WND_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
-  addUnsignedShortOption("WND_CAUCHY_ELEMS", Wnd_Cauchy_Elems, 100);
-  /*!\brief CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-10 \ingroup Config*/
+  /*!\brief WND_CONV_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
+  addUnsignedShortOption("WND_CONV_CAUCHY_ELEMS", Wnd_Cauchy_Elems, 100);
+  /*!\brief CONV_CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-10 \ingroup Config*/
   addDoubleOption("CONV_CAUCHY_EPS", Cauchy_Eps, 1E-10);
-  /*!\brief WND_CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-3 \ingroup Config*/
-  addDoubleOption("WND_CAUCHY_EPS", Wnd_Cauchy_Eps, 1E-3);
+  /*!\brief WND_CONV_CAUCHY_EPS\n DESCRIPTION: Epsilon to control the series convergence \n DEFAULT: 1e-3 \ingroup Config*/
+  addDoubleOption("WND_CONV_CAUCHY_EPS", Wnd_Cauchy_Eps, 1E-3);
   /*!\brief WND_CAUCHY_CRIT\n DESCRIPTION: Determines, if the cauchy convergence criterion should be used for windowed time averaged objective functions*/
   addBoolOption("WND_CAUCHY_CRIT",Wnd_Cauchy_Crit, false);
   /*!\brief CAUCHY_FUNC_FLOW

@@ -87,3 +87,7 @@ SU2_thesis.creator.user
 SU2_thesis.cxxflags
 SU2_thesis.files
 SU2_thesis.includes
+
+#Build files
+/build
+ninja

@@ -157,15 +157,15 @@ void CDiscAdjSinglezoneDriver::Run() {
 
     /*--- Secondary sensitivities must be computed with a certain frequency. ---*/
     /*--- It is also done at the beginning so all memory gets allocated.     ---*/
-    if ((Adjoint_Iter % config->GetWrt_Sol_Freq() == 0) && (SecondaryVariables != NONE)){
+    //if ((Adjoint_Iter % config->GetWrt_Sol_Freq() == 0) && (SecondaryVariables != NONE)){
 
       /*--- Computes secondary sensitivities ---*/
-      SecondaryRecording();
+     // SecondaryRecording();
 
       /*--- Recompute main sensitivities ---*/
-      MainRecording();
+     // MainRecording();
 
-    }
+    //}
 
     iteration->InitializeAdjoint(solver_container, geometry_container, config_container, ZONE_0, INST_0);
 
@@ -277,13 +277,14 @@ void CDiscAdjSinglezoneDriver::SetAdj_ObjFunction(){
 
   bool time_stepping = config->GetTime_Marching() != STEADY;
   unsigned long IterAvg_Obj = config->GetIter_Avg_Objective();
+  unsigned long timeIter = config->GetTimeIter();
   su2double seeding = 1.0;
 
   Signal_Processing::RunningAverage windowEvaluate = Signal_Processing::RunningAverage();
 
   if (time_stepping){
-    if (ExtIter < IterAvg_Obj){
-        seeding = windowEvaluate.GetWndWeight(config->GetWindowIdx(),ExtIter, static_cast<su2double>(IterAvg_Obj))/ (static_cast<su2double>(IterAvg_Obj));
+    if (timeIter < IterAvg_Obj){
+        seeding = windowEvaluate.GetWndWeight(config->GetWindowIdx(),timeIter, static_cast<su2double>(IterAvg_Obj))/ (static_cast<su2double>(IterAvg_Obj));
     }
     else{
       seeding = 0.0;
@@ -509,7 +510,7 @@ void CDiscAdjSinglezoneDriver::SecondaryRecording(){
 
   iteration->InitializeAdjoint(solver_container, geometry_container, config_container, ZONE_0, INST_0);
 
-  /*--- Initialize the adjoint of the objective function with 1.0. ---*/
+  /*--- Initialize the adjoint of the objective function with 1.0. or with the chosen window weight.---*/
 
   SetAdj_ObjFunction();
 
