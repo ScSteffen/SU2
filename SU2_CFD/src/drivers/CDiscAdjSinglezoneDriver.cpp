@@ -527,3 +527,7 @@ void CDiscAdjSinglezoneDriver::SecondaryRecording(){
   AD::ClearAdjoints();
 
 }
+
+bool CDiscAdjSinglezoneDriver::GetOuterConvergence(){
+    return false;
+}

@@ -60,20 +60,20 @@ def main():
                       help="Validate the gradient using direct diff. mode", metavar="VALIDATION")
     parser.add_option("-z", "--zones", dest="nzones", default="1",
                       help="Number of Zones", metavar="ZONES")
-    
+
     (options, args)=parser.parse_args()
     options.partitions  = int( options.partitions )
     options.step        = float( options.step )
     options.compute     = options.compute.upper() == 'TRUE'
     options.validate    = options.validate.upper() == 'TRUE'
     options.nzones      = int( options.nzones )
-    
+
     discrete_adjoint( options.filename    ,
                       options.partitions  ,
                       options.compute     ,
                       options.step        ,
                       options.nzones       )
-        
+
 #: def main()
 
 
@@ -86,7 +86,6 @@ def discrete_adjoint( filename           ,
                       compute     = True ,
                       step        = 1e-4 ,
                       nzones      = 1     ):
-    
     # Config
     config = SU2.io.Config(filename)
     config.NUMBER_PART = partitions
@@ -94,10 +93,10 @@ def discrete_adjoint( filename           ,
 
     # State
     state = SU2.io.State()
-    
+
     # Force CSV output in order to compute gradients
     config.WRT_CSV_SOL = 'YES'
-    
+
 
     config['GRADIENT_METHOD'] = 'DISCRETE_ADJOINT'
 
@@ -107,25 +106,37 @@ def discrete_adjoint( filename           ,
         state.find_files(config)
     else:
         state.FILES.MESH = config.MESH_FILENAME
-    
+
     # Direct Solution
     if compute:
-        info = SU2.run.direct(config) 
+        info = SU2.run.direct(config)
         state.update(info)
         SU2.io.restart2solution(config,state)
-    
+
+     # Adjust restart iteration and number of averaged iterations, if the (windowed) time average converged before all time iterations were computed
+    if compute and config.WND_CAUCHY_CRIT == 'YES':
+        #check the difference
+        
+        lastIter = int(info.HISTORY.DIRECT.Time_Iter[-1]+1)#get the last iteration
+        iterDiff = config.TIME_ITER -lastIter
+        config.TIME_ITER=config.TIME_ITER-iterDiff
+
+        if config.UNST_ADJOINT_ITER > lastIter:
+            config.ITER_AVERAGE_OBJ = config.ITER_AVERAGE_OBJ -(config.UNST_ADJOINT_ITER-lastIter)
+            config.UNST_ADJOINT_ITER = lastIter
+
     # Adjoint Solution
 
-    # Run all-at-once 
+    # Run all-at-once
     if compute:
         info = SU2.run.adjoint(config)
         state.update(info)
         SU2.io.restart2solution(config,state)
-    
+
     # Gradient Projection
     info = SU2.run.projection(config,step)
     state.update(info)
-    
+
     return state
 
 #: continuous_adjoint()

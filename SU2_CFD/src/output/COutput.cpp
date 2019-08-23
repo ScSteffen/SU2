@@ -719,6 +719,7 @@ bool COutput::MonitorConvergence(CConfig *config, unsigned long Iteration) {
 
 bool COutput::MonitorTimeConvergence(CConfig *config, unsigned long TimeIteration) {
   TimeConvergence = false;
+
   bool Inner_IterConv = GetConvergence() || config->GetnInner_Iter()-1 <= curr_InnerIter; //Check, if Inner_Iter is converged
 
   if(Inner_IterConv && TimeIteration >= config->GetStartWindowIteration()){
@@ -764,7 +765,6 @@ bool COutput::MonitorTimeConvergence(CConfig *config, unsigned long TimeIteratio
        if (GetHistoryFields()[WndConv_Field].FieldType == GetHistoryFieldType(0) /*TYPE_RESIDUAL*/ || GetHistoryFields()[WndConv_Field].FieldType == GetHistoryFieldType(1)/*TYPE_AUTORESIDUAL*/) {
 
          /*--- Check the convergence ---*/
-
          if ((monitor <= config->GetWndMinLogResidual())) { TimeConvergence = true; }
          else { TimeConvergence = false; }
 
@@ -773,7 +773,7 @@ bool COutput::MonitorTimeConvergence(CConfig *config, unsigned long TimeIteratio
        /*--- Do not apply any convergence criterion if the number
         of iterations is less than a particular value ---*/
 
-       if (TimeIteration < config->GetStartWindowIteration() + config->GetWnd_StartConv_Iter())TimeConvergence = false;
+       if (TimeIteration <= config->GetStartWindowIteration() + config->GetWnd_StartConv_Iter())TimeConvergence = false;
 
        /*--- Do not apply any convergence criterion if the option is disabled. */
 

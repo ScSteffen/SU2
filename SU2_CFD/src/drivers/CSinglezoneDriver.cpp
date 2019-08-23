@@ -349,9 +349,7 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
   }
 
   /*--- Check whether the outer time integration has reached the final time ---*/
-  OuterConvergence = output_container[ZONE_0]->GetTimeConvergence();
-
-
+  OuterConvergence = GetOuterConvergence();
 
   if (TimeDomain == YES) {
     
@@ -359,16 +357,16 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
   
     FinalTimeReached     = CurTime >= MaxTime ;
     MaxIterationsReached = TimeIter+1 >= nTimeIter;    
-    
+
     if ((FinalTimeReached || MaxIterationsReached || OuterConvergence) && (rank == MASTER_NODE)){
       cout << endl << "----------------------------- Solver Exit -------------------------------";
-      if(OuterConvergence) cout << endl << "Windowed time averaged objective function convergence criterion is fullfilled." << endl;
-      if (FinalTimeReached) cout << endl << "Maximum time reached (MAX_TIME = " << MaxTime << "s)." << endl;
-      else cout << endl << "Maximum number of time iterations reached (TIME_ITER = " << nTimeIter << ")." << endl;
+      if (OuterConvergence)     cout << endl << "Windowed time averaged objective function convergence criterion is fullfilled." << endl;
+      if (FinalTimeReached)     cout << endl << "Maximum time reached (MAX_TIME = " << MaxTime << "s)." << endl;
+      if (MaxIterationsReached) cout << endl << "Maximum number of time iterations reached (TIME_ITER = " << nTimeIter << ")." << endl;
       cout << "-------------------------------------------------------------------------" << endl;      
     }
     
-    StopCalc = FinalTimeReached || MaxIterationsReached;
+    StopCalc = FinalTimeReached || MaxIterationsReached || OuterConvergence;
   }
 
   /*--- Reset the inner convergence --- */
@@ -376,6 +374,10 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
   output_container[ZONE_0]->SetConvergence(false);
 
   return StopCalc;
+}
+
+bool CSinglezoneDriver::GetOuterConvergence(){
+    return output_container[ZONE_0]->GetTimeConvergence();
 }
 
 void CSinglezoneDriver::Runtime_Options(){
