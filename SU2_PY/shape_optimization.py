@@ -126,7 +126,6 @@ def shape_optimization( filename                           ,
                         optimization = 'SLSQP'             ,
                         quiet       = False                ,
                         nzones      = 1                    ):
-  
     # Config
     config = SU2.io.Config(filename)
     config.NUMBER_PART = partitions

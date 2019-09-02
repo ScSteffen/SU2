@@ -6185,18 +6185,8 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
                 cout << "Warning: No feasible function for application of the convergence criterion is chosen." << endl;
             }
           }
-
-          /*if (ContinuousAdjoint || DiscreteAdjoint)
-            switch (Cauchy_Func_AdjFlow) {
-              case SENS_GEOMETRY: cout << "Cauchy criteria for geo. sensitivity using "
-                << Cauchy_Elems << " elements and epsilon " <<Cauchy_Eps<< "."<< endl; break;
-              case SENS_MACH: cout << "Cauchy criteria for Mach number sensitivity using "
-                << Cauchy_Elems << " elements and epsilon " <<Cauchy_Eps<< "."<< endl; break;
-            }*/
-          cout << "Start convergence criteria at iteration " << StartWindowIteration + Wnd_StartConv_Iter<< "."<< endl;
-
+          cout << "Start convergence criterion at iteration " << StartWindowIteration + Wnd_StartConv_Iter<< "."<< endl;
       }
-
     }
     else{
         if (Kind_Struct_Solver == SMALL_DEFORMATIONS) {cout << "Convergence criteria determined by the linear solver." << endl;}

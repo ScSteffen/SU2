@@ -39,7 +39,7 @@
 #  Imports
 # ----------------------------------------------------------------------
 
-import copy
+import copy, os, SU2, sys
 
 from .. import io  as su2io
 from .merge     import merge     as su2merge
@@ -84,7 +84,39 @@ def adjoint( config ):
         konfig['MATH_PROBLEM']  = 'CONTINUOUS_ADJOINT'
 
     konfig['CONV_FILENAME'] = konfig['CONV_FILENAME'] + '_adjoint'
-    
+
+    # Get correct last iteration, if WND_CAUCHY_CRIT is activated
+    # TODO: Find a safer way to copy the updated wnd_values.
+    if konfig['WND_CAUCHY_CRIT'] == 'YES' and konfig['TIME_MARCHING'] != 'NO' and konfig['MATH_PROBLEM'] == 'DISCRETE_ADJOINT':
+        filename = 'config_WND_CONV.cfg'
+        fileInCurrentFolder = True
+        try:
+            f = open(filename, "r")
+        except IOError:
+            print('Could not find config <%s> in current folder. Try in ../DIRECT/' % filename)
+            fileInCurrentFolder = False
+        except:
+            print('Unexpected error: ', sys.exc_info()[0])
+            raise
+
+        if(fileInCurrentFolder == False):
+            filename = '../DIRECT/' + filename
+            try:
+                f = open(filename, "r")
+            except IOError:
+                print('Could not find %s in ../DIRECT/.' % filename)
+                raise
+            except:
+                print('Unexpected error: ', sys.exc_info()[0])
+                raise
+        print ('Found suitable file.')
+        f.close()
+        wnd_config = SU2.io.Config(filename)
+        #copy the updated iteration values
+        konfig['TIME_ITER'] =  wnd_config['TIME_ITER']
+        konfig['ITER_AVERAGE_OBJ'] =  wnd_config['ITER_AVERAGE_OBJ']
+        konfig['UNST_ADJOINT_ITER'] = wnd_config['UNST_ADJOINT_ITER']
+
     # Run Solution
     SU2_CFD(konfig)
     

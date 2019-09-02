@@ -113,18 +113,6 @@ def discrete_adjoint( filename           ,
         state.update(info)
         SU2.io.restart2solution(config,state)
 
-     # Adjust restart iteration and number of averaged iterations, if the (windowed) time average converged before all time iterations were computed
-    if compute and config.WND_CAUCHY_CRIT == 'YES':
-        #check the difference
-        
-        lastIter = int(info.HISTORY.DIRECT.Time_Iter[-1]+1)#get the last iteration
-        iterDiff = config.TIME_ITER -lastIter
-        config.TIME_ITER=config.TIME_ITER-iterDiff
-
-        if config.UNST_ADJOINT_ITER > lastIter:
-            config.ITER_AVERAGE_OBJ = config.ITER_AVERAGE_OBJ -(config.UNST_ADJOINT_ITER-lastIter)
-            config.UNST_ADJOINT_ITER = lastIter
-
     # Adjoint Solution
 
     # Run all-at-once

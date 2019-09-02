@@ -91,3 +91,6 @@ SU2_thesis.includes
 #Build files
 /build
 ninja
+
+#pycharm files
+/SU2_PY/.idea
