@@ -156,7 +156,7 @@ def shape_optimization( filename                           ,
         project.config = config
     else:
         project = SU2.opt.Project(config,state)
-    
+
     # Optimize
     if optimization == 'SLSQP':
       SU2.opt.SLSQP(project,x0,xb,its,accu)

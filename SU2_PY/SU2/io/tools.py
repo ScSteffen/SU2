@@ -1168,6 +1168,7 @@ def restart2solution(config,state={}):
         # expand unsteady time
         restarts  = expand_time(restarts,config)
         solutions = expand_time(solutions,config)
+
         # move
         for res,sol in zip(restarts,solutions):
             shutil.move( res , sol )
@@ -1189,6 +1190,7 @@ def restart2solution(config,state={}):
         # expand unsteady time
         restarts  = expand_time(restarts,config)
         solutions = expand_time(solutions,config)
+
         # move
         for res,sol in zip(restarts,solutions):
             shutil.move( res , sol )

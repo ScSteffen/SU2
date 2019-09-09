@@ -130,6 +130,7 @@ def direct ( config ):
             konfig['ITER_AVERAGE_OBJ'] = konfig['ITER_AVERAGE_OBJ'] -(konfig['UNST_ADJOINT_ITER']-konfig['TIME_ITER'])
             konfig['UNST_ADJOINT_ITER'] = konfig['TIME_ITER']
 
-        konfig.dump('config_WND_CONV.cfg')
+        info['WND_CAUCHY_DATA'] = {'TIME_ITER': konfig['TIME_ITER'], 'UNST_ADJOINT_ITER': konfig['UNST_ADJOINT_ITER'],
+                                   'ITER_AVERAGE_OBJ': konfig['ITER_AVERAGE_OBJ']}
 
     return info
