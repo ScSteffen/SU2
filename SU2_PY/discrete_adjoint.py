@@ -35,7 +35,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with SU2. If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys
+import os, sys, copy
 from optparse import OptionParser
 sys.path.append(os.environ['SU2_RUN'])
 import SU2
@@ -111,18 +111,26 @@ def discrete_adjoint( filename           ,
     if compute:
         info = SU2.run.direct(config)
         state.update(info)
-        SU2.io.restart2solution(config,state)
+
+        # Tranfer Convergence Data, if necessary
+        konfig = copy.deepcopy(config)
+        if konfig.WND_CAUCHY_CRIT == 'YES' and konfig.TIME_MARCHING != 'NO':
+            konfig['TIME_ITER'] = info.WND_CAUCHY_DATA['TIME_ITER']
+            konfig['ITER_AVERAGE_OBJ'] = info.WND_CAUCHY_DATA['ITER_AVERAGE_OBJ']
+            konfig['UNST_ADJOINT_ITER'] = info.WND_CAUCHY_DATA['UNST_ADJOINT_ITER']
+
+        SU2.io.restart2solution(konfig,state)
 
     # Adjoint Solution
 
     # Run all-at-once
     if compute:
-        info = SU2.run.adjoint(config)
+        info = SU2.run.adjoint(konfig)
         state.update(info)
-        SU2.io.restart2solution(config,state)
+        SU2.io.restart2solution(konfig,state)
 
     # Gradient Projection
-    info = SU2.run.projection(config,step)
+    info = SU2.run.projection(konfig,step)
     state.update(info)
 
     return state

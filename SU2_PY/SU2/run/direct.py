@@ -127,7 +127,7 @@ def direct ( config ):
     if config.WND_CAUCHY_CRIT == 'YES' and config.TIME_MARCHING != 'NO':
         konfig['TIME_ITER'] = int(info.HISTORY.DIRECT.Time_Iter[-1] + 1)  # update the last iteration
         if konfig['UNST_ADJOINT_ITER'] > konfig['TIME_ITER']:
-            konfig['ITER_AVERAGE_OBJ'] = konfig['ITER_AVERAGE_OBJ'] -(konfig['UNST_ADJOINT_ITER']-konfig['TIME_ITER'])
+            konfig['ITER_AVERAGE_OBJ'] = max(0,konfig['ITER_AVERAGE_OBJ'] -(konfig['UNST_ADJOINT_ITER']-konfig['TIME_ITER']))
             konfig['UNST_ADJOINT_ITER'] = konfig['TIME_ITER']
 
         info['WND_CAUCHY_DATA'] = {'TIME_ITER': konfig['TIME_ITER'], 'UNST_ADJOINT_ITER': konfig['UNST_ADJOINT_ITER'],
