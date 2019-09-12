@@ -107,13 +107,16 @@ def discrete_adjoint( filename           ,
     else:
         state.FILES.MESH = config.MESH_FILENAME
 
+    # Tranfer Convergence Data, if necessary
+    konfig = copy.deepcopy(config)
+
     # Direct Solution
     if compute:
         info = SU2.run.direct(config)
         state.update(info)
-
-        # Tranfer Convergence Data, if necessary
+        # Update konfig
         konfig = copy.deepcopy(config)
+
         if konfig.WND_CAUCHY_CRIT == 'YES' and konfig.TIME_MARCHING != 'NO':
             konfig['TIME_ITER'] = info.WND_CAUCHY_DATA['TIME_ITER']
             konfig['ITER_AVERAGE_OBJ'] = info.WND_CAUCHY_DATA['ITER_AVERAGE_OBJ']
