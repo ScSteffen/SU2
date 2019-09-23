@@ -1,12 +1,24 @@
 #include "../../../include/output/filewriter/CFVMDataSorter.hpp"
 #include "../../../Common/include/geometry_structure.hpp"
 
-CFVMDataSorter::CFVMDataSorter(CConfig *config, CGeometry *geometry, unsigned short nFields, std::vector<std::vector<su2double> >& Local_Data) : CParallelDataSorter(config, nFields){
- 
-  this->Local_Data = &Local_Data;
-    
+CFVMDataSorter::CFVMDataSorter(CConfig *config, CGeometry *geometry, unsigned short nFields) : CParallelDataSorter(config, nFields){
+
+  std::vector<unsigned long> globalID;
+  
   nGlobalPoint_Sort = geometry->GetGlobal_nPointDomain();
   nLocalPoint_Sort  = geometry->GetnPointDomain();
+
+  Local_Halo = new int[geometry->GetnPoint()]();
+  
+  for (unsigned long iPoint = 0; iPoint < geometry->GetnPoint(); iPoint++){
+  
+    /*--- Store the global IDs ---*/
+    
+    globalID.push_back(geometry->node[iPoint]->GetGlobalIndex());
+    
+    Local_Halo[iPoint] = !geometry->node[iPoint]->GetDomain();
+  }
+  
   
   /*--- Search all send/recv boundaries on this partition for halo cells. In
    particular, consider only the recv conditions (these are the true halo
@@ -15,18 +27,24 @@ CFVMDataSorter::CFVMDataSorter(CConfig *config, CGeometry *geometry, unsigned sh
 
   SetHaloPoints(geometry, config);
   
-  /*--- Create a linear partition --- */
+  /*--- Create the linear partitioner --- */
   
-  CreateLinearPartition(nGlobalPoint_Sort);  
+  linearPartitioner = new CLinearPartitioner(nGlobalPoint_Sort, 0);
+  
+  /*--- Prepare the send buffers ---*/
+  
+  PrepareSendBuffers(globalID);
+  
 }
 
 CFVMDataSorter::~CFVMDataSorter(){
   
-  delete [] beg_node;
-  delete [] end_node;
-  delete [] nPoint_Cum;
-  delete [] nPoint_Lin;
   delete [] Local_Halo;
+  
+  if (Index != NULL)       delete [] Index;
+  if (idSend != NULL)      delete [] idSend;
+  if (linearPartitioner != NULL) delete linearPartitioner;
+  if (dataBuffer != NULL) delete [] reinterpret_cast<su2double*>(dataBuffer);
   
 }
 
@@ -37,10 +55,6 @@ void CFVMDataSorter::SetHaloPoints(CGeometry *geometry, CConfig *config){
   int SendRecv, RecvFrom;
   bool notHalo;
 
-  Local_Halo = new int[geometry->GetnPoint()];
-  for (iPoint = 0; iPoint < geometry->GetnPoint(); iPoint++)
-    Local_Halo[iPoint] = !geometry->node[iPoint]->GetDomain();
-  
   for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
     if (config->GetMarker_All_KindBC(iMarker) == SEND_RECEIVE) {
       SendRecv = config->GetMarker_All_SendRecv(iMarker);
@@ -63,300 +77,7 @@ void CFVMDataSorter::SetHaloPoints(CGeometry *geometry, CConfig *config){
   }
 }
 
-void CFVMDataSorter::SortOutputData(CConfig *config, CGeometry *geometry) {
-  
-  unsigned long iProcessor;
-  unsigned long iPoint, Global_Index;
-  
-  int VARS_PER_POINT = GlobalField_Counter;
-  
-#ifdef HAVE_MPI
-  SU2_MPI::Request *send_req, *recv_req;
-  SU2_MPI::Status status;
-  int ind;
-#endif
-  
-  /*--- We start with the grid nodes distributed across all procs with
-   no particular ordering assumed. We need to loop through our local partition
-   and decide how many nodes we must send to each other rank in order to
-   have all nodes sorted according to a linear partitioning of the grid
-   nodes, i.e., rank 0 holds the first ~ nGlobalPoint()/nProcessors nodes.
-   First, initialize a counter and flag. ---*/
-  
-  int *nPoint_Send = new int[size+1]; nPoint_Send[0] = 0;
-  int *nPoint_Recv = new int[size+1]; nPoint_Recv[0] = 0;
-  int *nPoint_Flag = new int[size];
-  
-  for (int ii=0; ii < size; ii++) {
-    nPoint_Send[ii] = 0;
-    nPoint_Recv[ii] = 0;
-    nPoint_Flag[ii]= -1;
-  }
-  nPoint_Send[size] = 0; nPoint_Recv[size] = 0;
-  
-  for (iPoint = 0; iPoint < nLocalPoint_Sort; iPoint++ ) {
-    
-    /*--- Get the global index of the current point. ---*/
-    
-    Global_Index = geometry->node[iPoint]->GetGlobalIndex();
-    
-    /*--- Search for the processor that owns this point ---*/
-    
-    iProcessor = FindProcessor(Global_Index);
-    
-    /*--- If we have not visited this node yet, increment our
-       number of elements that must be sent to a particular proc. ---*/
-    
-    if (nPoint_Flag[iProcessor] != (int)iPoint) {
-      nPoint_Flag[iProcessor] = (int)iPoint;
-      nPoint_Send[iProcessor+1]++;
-    }
-  }
-  
-  /*--- Communicate the number of nodes to be sent/recv'd amongst
-   all processors. After this communication, each proc knows how
-   many cells it will receive from each other processor. ---*/
-  
-#ifdef HAVE_MPI
-  SU2_MPI::Alltoall(&(nPoint_Send[1]), 1, MPI_INT,
-                    &(nPoint_Recv[1]), 1, MPI_INT, MPI_COMM_WORLD);
-#else
-  nPoint_Recv[1] = nPoint_Send[1];
-#endif
-  
-  /*--- Prepare to send coordinates. First check how many
-   messages we will be sending and receiving. Here we also put
-   the counters into cumulative storage format to make the
-   communications simpler. ---*/
-  
-  int nSends = 0, nRecvs = 0;
-  for (int ii=0; ii < size; ii++) nPoint_Flag[ii] = -1;
-  
-  for (int ii = 0; ii < size; ii++) {
-    if ((ii != rank) && (nPoint_Send[ii+1] > 0)) nSends++;
-    if ((ii != rank) && (nPoint_Recv[ii+1] > 0)) nRecvs++;
-    
-    nPoint_Send[ii+1] += nPoint_Send[ii];
-    nPoint_Recv[ii+1] += nPoint_Recv[ii];
-  }
-  
-  /*--- Allocate memory to hold the connectivity that we are
-   sending. ---*/
-  
-  su2double *connSend = NULL;
-  connSend = new su2double[VARS_PER_POINT*nPoint_Send[size]];
-  for (int ii = 0; ii < VARS_PER_POINT*nPoint_Send[size]; ii++)
-    connSend[ii] = 0;
-  
-  /*--- Allocate arrays for sending the global ID. ---*/
-  
-  unsigned long *idSend = new unsigned long[nPoint_Send[size]];
-  for (int ii = 0; ii < nPoint_Send[size]; ii++)
-    idSend[ii] = 0;
-  
-  /*--- Create an index variable to keep track of our index
-   positions as we load up the send buffer. ---*/
-  
-  unsigned long *index = new unsigned long[size];
-  for (int ii=0; ii < size; ii++) index[ii] = VARS_PER_POINT*nPoint_Send[ii];
-  
-  unsigned long *idIndex = new unsigned long[size];
-  for (int ii=0; ii < size; ii++) idIndex[ii] = nPoint_Send[ii];
-  
-  /*--- Loop through our elements and load the elems and their
-   additional data that we will send to the other procs. ---*/
-  
-  for (iPoint = 0; iPoint < nLocalPoint_Sort; iPoint++) {
-    
-    /*--- Get the index of the current point. ---*/
-    
-    Global_Index = geometry->node[iPoint]->GetGlobalIndex();
-    
-    /*--- Search for the processor that owns this point. ---*/
-    
-    iProcessor = FindProcessor(Global_Index);
 
-    /*--- Load node coordinates into the buffer for sending. ---*/
-    
-    if (nPoint_Flag[iProcessor] != (int)iPoint) {
-      
-      nPoint_Flag[iProcessor] = (int)iPoint;
-      unsigned long nn = index[iProcessor];
-      
-      /*--- Load the data values. ---*/
-      
-      for (unsigned short kk = 0; kk < VARS_PER_POINT; kk++) {
-        connSend[nn] = (*Local_Data)[iPoint][kk]; nn++;
-      }
-      
-      /*--- Load the global ID (minus offset) for sorting the
-         points once they all reach the correct processor. ---*/
-      
-      nn = idIndex[iProcessor];
-      idSend[nn] = Global_Index - beg_node[iProcessor];
-      
-      /*--- Increment the index by the message length ---*/
-      
-      index[iProcessor]  += VARS_PER_POINT;
-      idIndex[iProcessor]++;
-      
-    }
-  }
-  
-  /*--- Free memory after loading up the send buffer. ---*/
-  
-  delete [] index;
-  delete [] idIndex;
-  
-  /*--- Allocate the memory that we need for receiving the conn
-   values and then cue up the non-blocking receives. Note that
-   we do not include our own rank in the communications. We will
-   directly copy our own data later. ---*/
-  
-  su2double *connRecv = NULL;
-  connRecv = new su2double[VARS_PER_POINT*nPoint_Recv[size]];
-  for (int ii = 0; ii < VARS_PER_POINT*nPoint_Recv[size]; ii++)
-    connRecv[ii] = 0;
-  
-  unsigned long *idRecv = new unsigned long[nPoint_Recv[size]];
-  for (int ii = 0; ii < nPoint_Recv[size]; ii++)
-    idRecv[ii] = 0;
-  
-#ifdef HAVE_MPI
-  /*--- We need double the number of messages to send both the conn.
-   and the global IDs. ---*/
-  
-  send_req = new SU2_MPI::Request[2*nSends];
-  recv_req = new SU2_MPI::Request[2*nRecvs];
-  
-  unsigned long iMessage = 0;
-  for (int ii=0; ii<size; ii++) {
-    if ((ii != rank) && (nPoint_Recv[ii+1] > nPoint_Recv[ii])) {
-      int ll     = VARS_PER_POINT*nPoint_Recv[ii];
-      int kk     = nPoint_Recv[ii+1] - nPoint_Recv[ii];
-      int count  = VARS_PER_POINT*kk;
-      int source = ii;
-      int tag    = ii + 1;
-      SU2_MPI::Irecv(&(connRecv[ll]), count, MPI_DOUBLE, source, tag,
-                     MPI_COMM_WORLD, &(recv_req[iMessage]));
-      iMessage++;
-    }
-  }
-  
-  /*--- Launch the non-blocking sends of the connectivity. ---*/
-  
-  iMessage = 0;
-  for (int ii=0; ii<size; ii++) {
-    if ((ii != rank) && (nPoint_Send[ii+1] > nPoint_Send[ii])) {
-      int ll = VARS_PER_POINT*nPoint_Send[ii];
-      int kk = nPoint_Send[ii+1] - nPoint_Send[ii];
-      int count  = VARS_PER_POINT*kk;
-      int dest = ii;
-      int tag    = rank + 1;
-      SU2_MPI::Isend(&(connSend[ll]), count, MPI_DOUBLE, dest, tag,
-                     MPI_COMM_WORLD, &(send_req[iMessage]));
-      iMessage++;
-    }
-  }
-  
-  /*--- Repeat the process to communicate the global IDs. ---*/
-  
-  iMessage = 0;
-  for (int ii=0; ii<size; ii++) {
-    if ((ii != rank) && (nPoint_Recv[ii+1] > nPoint_Recv[ii])) {
-      int ll     = nPoint_Recv[ii];
-      int kk     = nPoint_Recv[ii+1] - nPoint_Recv[ii];
-      int count  = kk;
-      int source = ii;
-      int tag    = ii + 1;
-      SU2_MPI::Irecv(&(idRecv[ll]), count, MPI_UNSIGNED_LONG, source, tag,
-                     MPI_COMM_WORLD, &(recv_req[iMessage+nRecvs]));
-      iMessage++;
-    }
-  }
-  
-  /*--- Launch the non-blocking sends of the global IDs. ---*/
-  
-  iMessage = 0;
-  for (int ii=0; ii<size; ii++) {
-    if ((ii != rank) && (nPoint_Send[ii+1] > nPoint_Send[ii])) {
-      int ll = nPoint_Send[ii];
-      int kk = nPoint_Send[ii+1] - nPoint_Send[ii];
-      int count  = kk;
-      int dest   = ii;
-      int tag    = rank + 1;
-      SU2_MPI::Isend(&(idSend[ll]), count, MPI_UNSIGNED_LONG, dest, tag,
-                     MPI_COMM_WORLD, &(send_req[iMessage+nSends]));
-      iMessage++;
-    }
-  }
-#endif
-  
-  /*--- Copy my own rank's data into the recv buffer directly. ---*/
-  
-  int mm = VARS_PER_POINT*nPoint_Recv[rank];
-  int ll = VARS_PER_POINT*nPoint_Send[rank];
-  int kk = VARS_PER_POINT*nPoint_Send[rank+1];
-  
-  for (int nn=ll; nn<kk; nn++, mm++) connRecv[mm] = connSend[nn];
-  
-  mm = nPoint_Recv[rank];
-  ll = nPoint_Send[rank];
-  kk = nPoint_Send[rank+1];
-  
-  for (int nn=ll; nn<kk; nn++, mm++) idRecv[mm] = idSend[nn];
-  
-  /*--- Wait for the non-blocking sends and recvs to complete. ---*/
-  
-#ifdef HAVE_MPI
-  int number = 2*nSends;
-  for (int ii = 0; ii < number; ii++)
-    SU2_MPI::Waitany(number, send_req, &ind, &status);
-  
-  number = 2*nRecvs;
-  for (int ii = 0; ii < number; ii++)
-    SU2_MPI::Waitany(number, recv_req, &ind, &status);
-  
-  delete [] send_req;
-  delete [] recv_req;
-#endif
-  
-  /*--- Store the connectivity for this rank in the proper data
-   structure before post-processing below. First, allocate the
-   appropriate amount of memory for this section. ---*/
-  
-  Parallel_Data = new su2double*[VARS_PER_POINT];
-  for (int jj = 0; jj < VARS_PER_POINT; jj++) {
-    Parallel_Data[jj] = new su2double[nPoint_Recv[size]];
-    for (int ii = 0; ii < nPoint_Recv[size]; ii++) {
-      Parallel_Data[jj][idRecv[ii]] = connRecv[ii*VARS_PER_POINT+jj];
-    }
-  }
-  
-  /*--- Store the total number of local points my rank has for
-   the current section after completing the communications. ---*/
-  
-  nParallel_Poin = nPoint_Recv[size];
-  
-  /*--- Reduce the total number of points we will write in the output files. ---*/
-
-#ifndef HAVE_MPI
-  nGlobal_Poin_Par = nParallel_Poin;
-#else
-  SU2_MPI::Allreduce(&nParallel_Poin, &nGlobal_Poin_Par, 1,
-                     MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-#endif
-  
-  /*--- Free temporary memory from communications ---*/
-  
-  delete [] connSend;
-  delete [] connRecv;
-  delete [] idSend;
-  delete [] idRecv;
-  delete [] nPoint_Recv;
-  delete [] nPoint_Send;
-  delete [] nPoint_Flag;
-}
 
 
 void CFVMDataSorter::SortConnectivity(CConfig *config, CGeometry *geometry, bool val_sort) {
@@ -364,11 +85,6 @@ void CFVMDataSorter::SortConnectivity(CConfig *config, CGeometry *geometry, bool
   /*--- Sort connectivity for each type of element (excluding halos). Note
    In these routines, we sort the connectivity into a linear partitioning
    across all processors based on the global index of the grid nodes. ---*/
-  
-  /*--- Sort volumetric grid connectivity. ---*/
-
-  if ((rank == MASTER_NODE) && (size != SINGLE_NODE))
-    cout <<"Sorting volumetric grid connectivity." << endl;
   
   SortVolumetricConnectivity(config, geometry, TRIANGLE,      val_sort);
   SortVolumetricConnectivity(config, geometry, QUADRILATERAL, val_sort);
@@ -444,9 +160,9 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
    nodes, i.e., rank 0 holds the first nPoint()/nProcessors nodes.
    First, initialize a counter and flag. ---*/
   
-  int *nElem_Send = new int[size+1]; nElem_Send[0] = 0;
-  int *nElem_Recv = new int[size+1]; nElem_Recv[0] = 0;
-  int *nElem_Flag = new int[size];
+  int *nElem_Send = new int[size+1](); nElem_Send[0] = 0;
+  int *nElem_Recv = new int[size+1](); nElem_Recv[0] = 0;
+  int *nElem_Flag = new int[size]();
   
   for (int ii=0; ii < size; ii++) {
     nElem_Send[ii] = 0;
@@ -480,7 +196,7 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
          own elements into the connectivity data structure. ---*/
         
         if (val_sort) {
-          iProcessor = FindProcessor(Global_Index);
+          iProcessor = linearPartitioner->GetRankContainingIndex(Global_Index);
         } else {
           iProcessor = rank;
         }
@@ -529,23 +245,21 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
    sending. ---*/
   
   unsigned long *connSend = NULL;
-  connSend = new unsigned long[NODES_PER_ELEMENT*nElem_Send[size]];
-  for (int ii = 0; ii < NODES_PER_ELEMENT*nElem_Send[size]; ii++)
-    connSend[ii] = 0;
+  connSend = new unsigned long[NODES_PER_ELEMENT*nElem_Send[size]]();
   
   /*--- Allocate arrays for storing halo flags. ---*/
   
-  unsigned short *haloSend = new unsigned short[nElem_Send[size]];
+  unsigned short *haloSend = new unsigned short[nElem_Send[size]]();
   for (int ii = 0; ii < nElem_Send[size]; ii++)
     haloSend[ii] = false;
   
   /*--- Create an index variable to keep track of our index
    position as we load up the send buffer. ---*/
   
-  unsigned long *index = new unsigned long[size];
+  unsigned long *index = new unsigned long[size]();
   for (int ii=0; ii < size; ii++) index[ii] = NODES_PER_ELEMENT*nElem_Send[ii];
   
-  unsigned long *haloIndex = new unsigned long[size];
+  unsigned long *haloIndex = new unsigned long[size]();
   for (int ii=0; ii < size; ii++) haloIndex[ii] = nElem_Send[ii];
   
   /*--- Loop through our elements and load the elems and their
@@ -576,7 +290,7 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
          own elements into the connectivity data structure. ---*/
         
         if (val_sort) {
-          iProcessor = FindProcessor(Global_Index);    
+          iProcessor = linearPartitioner->GetRankContainingIndex(Global_Index);
         } else {
           iProcessor = rank;
         }
@@ -625,13 +339,9 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
    directly copy our own data later. ---*/
   
   unsigned long *connRecv = NULL;
-  connRecv = new unsigned long[NODES_PER_ELEMENT*nElem_Recv[size]];
-  for (int ii = 0; ii < NODES_PER_ELEMENT*nElem_Recv[size]; ii++)
-    connRecv[ii] = 0;
+  connRecv = new unsigned long[NODES_PER_ELEMENT*nElem_Recv[size]]();
   
-  unsigned short *haloRecv = new unsigned short[nElem_Recv[size]];
-  for (int ii = 0; ii < nElem_Recv[size]; ii++)
-    haloRecv[ii] = false;
+  unsigned short *haloRecv = new unsigned short[nElem_Recv[size]]();
   
 #ifdef HAVE_MPI
 
@@ -737,7 +447,7 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
    to the connectivity for vizualization packages. First, allocate
    appropriate amount of memory for this section. ---*/
   
-  if (nElem_Recv[size] > 0) Conn_Elem = new int[NODES_PER_ELEMENT*nElem_Recv[size]];
+  if (nElem_Recv[size] > 0) Conn_Elem = new int[NODES_PER_ELEMENT*nElem_Recv[size]]();
   int count = 0; nElem_Total = 0;
   for (int ii = 0; ii < nElem_Recv[size]; ii++) {
     if (!haloRecv[ii]) {
@@ -755,26 +465,32 @@ void CFVMDataSorter::SortVolumetricConnectivity(CConfig *config,
   switch (Elem_Type) {
     case TRIANGLE:
       nParallel_Tria = nElem_Total;
+      if (Conn_Tria_Par != NULL) delete [] Conn_Tria_Par;
       if (nParallel_Tria > 0) Conn_Tria_Par = Conn_Elem;
       break;
     case QUADRILATERAL:
       nParallel_Quad = nElem_Total;
+      if (Conn_Quad_Par != NULL) delete [] Conn_Quad_Par;      
       if (nParallel_Quad > 0) Conn_Quad_Par = Conn_Elem;
       break;
     case TETRAHEDRON:
       nParallel_Tetr = nElem_Total;
+      if (Conn_Tetr_Par != NULL) delete [] Conn_Tetr_Par;            
       if (nParallel_Tetr > 0) Conn_Tetr_Par = Conn_Elem;
       break;
     case HEXAHEDRON:
       nParallel_Hexa = nElem_Total;
+      if (Conn_Hexa_Par != NULL) delete [] Conn_Hexa_Par;                  
       if (nParallel_Hexa > 0) Conn_Hexa_Par = Conn_Elem;
       break;
     case PRISM:
       nParallel_Pris = nElem_Total;
+      if (Conn_Pris_Par != NULL) delete [] Conn_Pris_Par;                  
       if (nParallel_Pris > 0) Conn_Pris_Par = Conn_Elem;
       break;
     case PYRAMID:
       nParallel_Pyra = nElem_Total;
+      if (Conn_Pyra_Par != NULL) delete [] Conn_Pyra_Par;                  
       if (nParallel_Pyra > 0) Conn_Pyra_Par = Conn_Elem;
       break;
     default:

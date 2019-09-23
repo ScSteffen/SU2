@@ -62,7 +62,8 @@ void CSinglezoneDriver::StartSolver() {
   if (rank == MASTER_NODE){
     cout << endl <<"Simulation Run using the Single-zone Driver" << endl;
     if (driver_config->GetTime_Domain())
-      cout << "The simulation will run for " << driver_config->GetnTime_Iter() << " time steps." << endl;
+      cout << "The simulation will run for " 
+           << driver_config->GetnTime_Iter() - config_container[ZONE_0]->GetRestart_Iter() << " time steps." << endl;
   }
 
   /*--- Set the initial time iteration to the restart iteration. ---*/
@@ -145,8 +146,10 @@ void CSinglezoneDriver::Preprocess(unsigned long TimeIter) {
         numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
   /*--- Perform a dynamic mesh update if required. ---*/
-
-  DynamicMeshUpdate(TimeIter);
+  /*--- For the Disc.Adj. of a case with (rigidly) moving grid, the appropriate
+          mesh cordinates are read from the restart files. ---*/
+  if (!(config_container[ZONE_0]->GetGrid_Movement() && config_container[ZONE_0]->GetDiscrete_Adjoint()))
+    DynamicMeshUpdate(TimeIter);
 
 }
 
@@ -162,6 +165,9 @@ void CSinglezoneDriver::Run() {
 }
 
 void CSinglezoneDriver::Postprocess() {
+
+    iteration_container[ZONE_0][INST_0]->Postprocess(output_container[ZONE_0], integration_container, geometry_container, solver_container,
+        numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
     /*--- A corrector step can help preventing numerical instabilities ---*/
 
@@ -181,109 +187,12 @@ void CSinglezoneDriver::Update() {
 
 void CSinglezoneDriver::Output(unsigned long TimeIter) {
 
-  bool output_files = false;
   
-  unsigned short RestartFormat = SU2_RESTART_ASCII;
-  unsigned short OutputFormat = config_container[ZONE_0]->GetOutput_FileFormat();
+  bool wrote_files = output_container[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
+                                                               config_container[ZONE_0],
+                                                               solver_container[ZONE_0][INST_0][MESH_0], TimeIter, StopCalc);
   
-  bool Wrt_Surf = config_container[ZONE_0]->GetWrt_Srf_Sol();
-  bool Wrt_Vol  = config_container[ZONE_0]->GetWrt_Vol_Sol();
-  bool Wrt_CSV  = config_container[ZONE_0]->GetWrt_Csv_Sol();
-  bool TimeDomain = config_container[ZONE_0]->GetTime_Domain();
-  
-  if (config_container[ZONE_0]->GetWrt_Binary_Restart()){
-    RestartFormat = SU2_RESTART_BINARY;
-  }
-
-  /*--- Determine whether a solution needs to be written
-   after the current iteration ---*/
-
-  if (
-
-      /*--- General if statements to print output statements ---*/
-
-      (StopCalc) ||
-
-      /*--- Unsteady problems ---*/
-
-      (((config_container[ZONE_0]->GetTime_Marching() == DT_STEPPING_1ST) ||
-        (config_container[ZONE_0]->GetTime_Marching() == TIME_STEPPING)) &&
-       ((TimeIter == 0) || (TimeIter % config_container[ZONE_0]->GetWrt_Sol_Freq_DualTime() == 0))) ||
-
-      ((config_container[ZONE_0]->GetTime_Marching() == DT_STEPPING_2ND) &&
-       ((TimeIter == 0) || ((TimeIter % config_container[ZONE_0]->GetWrt_Sol_Freq_DualTime() == 0) ||
-                           ((TimeIter-1) % config_container[ZONE_0]->GetWrt_Sol_Freq_DualTime() == 0)))) ||
-
-      ((config_container[ZONE_0]->GetTime_Marching() == DT_STEPPING_2ND) &&
-       ((TimeIter == 0) || ((TimeIter % config_container[ZONE_0]->GetWrt_Sol_Freq_DualTime() == 0)))) ||
-
-      ((config_container[ZONE_0]->GetTime_Domain()) &&
-       ((TimeIter == 0) || (TimeIter % config_container[ZONE_0]->GetWrt_Sol_Freq_DualTime() == 0))) ||
-
-      /*--- No inlet profile file found. Print template. ---*/
-
-      (config_container[ZONE_0]->GetWrt_InletFile())
-
-      ) {
-
-    output_files = true;
-
-  }
-
-  /*--- Determine whether a solution doesn't need to be written
-   after the current iteration ---*/
-
-//  if (config_container[ZONE_0]->GetFixed_CL_Mode()) {
-//    if (config_container[ZONE_0]->GetnExtIter()-config_container[ZONE_0]->GetIter_dCL_dAlpha() - 1 < ExtIter) output_files = false;
-//    if (config_container[ZONE_0]->GetnExtIter() - 1 == ExtIter) output_files = true;
-//  }
-
-  /*--- write the solution ---*/
-
-  if (output_files && config_container[ZONE_0]->GetWrt_Output()) {
-
-    /*--- Time the output for performance benchmarking. ---*/
-#ifndef HAVE_MPI
-    StopTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
-#else
-    StopTime = MPI_Wtime();
-#endif
-    UsedTimeCompute += StopTime-StartTime;
-#ifndef HAVE_MPI
-    StartTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
-#else
-    StartTime = MPI_Wtime();
-#endif
-
-    if (rank == MASTER_NODE) cout << endl << "-------------------------- File Output Summary --------------------------";
-
-    /*--- Execute the routine for writing restart, volume solution,
-     surface solution, and surface comma-separated value files. ---*/
-    
-    for (unsigned short iInst = 0; iInst < nInst[ZONE_0]; iInst++){
-      
-      config_container[ZONE_0]->SetiInst(iInst);
-      
-      output_container[ZONE_0]->Load_Data(geometry_container[ZONE_0][iInst][MESH_0], config_container[ZONE_0], solver_container[ZONE_0][iInst][MESH_0]);
-      
-      /*--- Write restart files ---*/
-      
-      output_container[ZONE_0]->SetVolume_Output(geometry_container[ZONE_0][iInst][MESH_0], config_container[ZONE_0], RestartFormat, TimeDomain);
-      
-      /*--- Write visualization files ---*/
-      
-      if (Wrt_Vol)
-        output_container[ZONE_0]->SetVolume_Output(geometry_container[ZONE_0][iInst][MESH_0], config_container[ZONE_0], OutputFormat, TimeDomain);
-      if (Wrt_Surf)
-        output_container[ZONE_0]->SetSurface_Output(geometry_container[ZONE_0][iInst][MESH_0], config_container[ZONE_0], OutputFormat, TimeDomain);
-      if (Wrt_CSV)
-        output_container[ZONE_0]->SetSurface_Output(geometry_container[ZONE_0][iInst][MESH_0], config_container[ZONE_0], CSV, TimeDomain);    
-      
-      output_container[ZONE_0]->DeallocateData_Parallel();
-      
-    }
-    if (rank == MASTER_NODE) cout << "-------------------------------------------------------------------------" << endl << endl;
-
+  if (wrote_files){
     /*--- Store output time and restart the timer for the compute phase. ---*/
 #ifndef HAVE_MPI
     StopTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
@@ -293,25 +202,37 @@ void CSinglezoneDriver::Output(unsigned long TimeIter) {
     UsedTimeOutput += StopTime-StartTime;
     OutputCount++;
     BandwidthSum = config_container[ZONE_0]->GetRestart_Bandwidth_Agg();
-
-  }
-  
+    
+    
+    
 #ifndef HAVE_MPI
-  StartTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
+    StartTime = su2double(clock())/su2double(CLOCKS_PER_SEC);
 #else
-  StartTime = MPI_Wtime();
+    StartTime = MPI_Wtime();
 #endif
-  config_container[ZONE_0]->Set_StartTime(StartTime);
-  
-}
+    config_container[ZONE_0]->Set_StartTime(StartTime);
+  }
+}  
 
 void CSinglezoneDriver::DynamicMeshUpdate(unsigned long TimeIter) {
 
-  /*--- Dynamic mesh update ---*/
+  /*--- Legacy dynamic mesh update - Only if GRID_MOVEMENT = YES ---*/
   if (config_container[ZONE_0]->GetGrid_Movement()) {
     iteration_container[ZONE_0][INST_0]->SetGrid_Movement(geometry_container[ZONE_0][INST_0],surface_movement[ZONE_0], 
                                                           grid_movement[ZONE_0][INST_0], solver_container[ZONE_0][INST_0],
-                                                          config_container[ZONE_0], 0, TimeIter);  }
+                                                          config_container[ZONE_0], 0, TimeIter);
+  }
+
+  /*--- New solver - all the other routines in SetGrid_Movement should be adapted to this one ---*/
+  /*--- Works if DEFORM_MESH = YES ---*/
+  if (config_container[ZONE_0]->GetDeform_Mesh()) {
+    iteration_container[ZONE_0][INST_0]->SetMesh_Deformation(geometry_container[ZONE_0][INST_0],
+                                                             solver_container[ZONE_0][INST_0][MESH_0],
+                                                             numerics_container[ZONE_0][INST_0][MESH_0],
+                                                             config_container[ZONE_0],
+                                                             NONE);
+  }
+
 
 }
 

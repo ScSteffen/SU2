@@ -1904,7 +1904,7 @@ void CVolumetricMovement::Rigid_Rotation(CGeometry *geometry, CConfig *config,
   su2double dtheta, dphi, dpsi, cosTheta, sinTheta;
   su2double cosPhi, sinPhi, cosPsi, sinPsi;
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
 
 
   /*--- Problem dimension and physical time step ---*/
@@ -2067,7 +2067,7 @@ void CVolumetricMovement::Rigid_Pitching(CGeometry *geometry, CConfig *config, u
   unsigned short nDim = geometry->GetnDim();
   unsigned long iPoint;
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
 
   
   /*--- Retrieve values from the config file ---*/
@@ -2214,7 +2214,7 @@ void CVolumetricMovement::Rigid_Plunging(CGeometry *geometry, CConfig *config, u
   unsigned short iDim, nDim = geometry->GetnDim();
   unsigned long iPoint;
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
 
   
   /*--- Retrieve values from the config file ---*/
@@ -2346,7 +2346,7 @@ void CVolumetricMovement::Rigid_Translation(CGeometry *geometry, CConfig *config
   unsigned short iDim, nDim = geometry->GetnDim();
   unsigned long iPoint;
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
 
   
   /*--- Retrieve values from the config file ---*/
@@ -2712,23 +2712,28 @@ void CSurfaceMovement::SetSurface_Deformation(CGeometry *geometry, CConfig *conf
         /*--- Output original FFD FFDBox ---*/
         
         if (rank == MASTER_NODE) {
-          if ((config->GetOutput_FileFormat() == PARAVIEW) ||
-              (config->GetOutput_FileFormat() == PARAVIEW_BINARY)) {
-            cout << "Writing a Paraview file of the FFD boxes." << endl;
-            FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, true);
+          for (unsigned short iFile = 0; iFile < config->GetnVolumeOutputFiles(); iFile++){
+            unsigned short *FileFormat = config->GetVolumeOutputFiles();
+            if (FileFormat[iFile] == PARAVIEW) {
+              cout << "Writing a Paraview file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, true);
+              }
+            } else if (FileFormat[iFile] == TECPLOT) {
+              cout << "Writing a Tecplot file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, true);
+              }
+            }
+            else if (FileFormat[iFile] == CGNS)  {
+              cout << "Writing a CGNS file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, true);
+              }
+            }
           }
-          else if (config->GetOutput_FileFormat() == TECPLOT ) {
-            cout << "Writing a Tecplot file of the FFD boxes." << endl;
-            FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, true);
-          }
-          else {
-            cout << "Writing a CGNS file of the FFD boxes." << endl;
-            FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, true);
-          }
-        }
-        
+        }  
       }
-      
     }
     
     else {
@@ -2790,23 +2795,27 @@ void CSurfaceMovement::SetSurface_Deformation(CGeometry *geometry, CConfig *conf
     
       /*--- Output original FFD FFDBox ---*/
       
-       if ((rank == MASTER_NODE) && (config->GetKind_SU2() != SU2_DOT)) {
-        if ((config->GetOutput_FileFormat() == PARAVIEW) || (config->GetOutput_FileFormat() == PARAVIEW_BINARY)) {
-          cout << "Writing a Paraview file of the FFD boxes." << endl;
-          for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-            FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, true);
+      if ((rank == MASTER_NODE) && (config->GetKind_SU2() != SU2_DOT)) {
+        
+        for (unsigned short iFile = 0; iFile < config->GetnVolumeOutputFiles(); iFile++){
+          unsigned short *FileFormat = config->GetVolumeOutputFiles();
+          
+          if (FileFormat[iFile] == PARAVIEW) {
+            cout << "Writing a Paraview file of the FFD boxes." << endl;
+            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+              FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, true);
+            }
+          } else if (FileFormat[iFile] == TECPLOT) {
+            cout << "Writing a Tecplot file of the FFD boxes." << endl;
+            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+              FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, true);
+            }
           }
-        }
-        else if (config->GetOutput_FileFormat() == TECPLOT) {
-          cout << "Writing a Tecplot file of the FFD boxes." << endl;
-          for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-            FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, true);
-          }
-        }
-        else {
-          cout << "Writing a CGNS file of the FFD boxes." << endl;
-          for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-            FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, true);
+          else if (FileFormat[iFile] == CGNS)  {
+            cout << "Writing a CGNS file of the FFD boxes." << endl;
+            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+              FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, true);
+            }
           }
         }
       }
@@ -2966,26 +2975,29 @@ void CSurfaceMovement::SetSurface_Deformation(CGeometry *geometry, CConfig *conf
         /*--- Output the deformed FFD Boxes ---*/
         
         if ((rank == MASTER_NODE) && (config->GetKind_SU2() != SU2_DOT)) {
-          if ((config->GetOutput_FileFormat() == PARAVIEW) || (config->GetOutput_FileFormat() == PARAVIEW_BINARY)) {
-            cout << "Writing a Paraview file of the FFD boxes." << endl;
-            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-              FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, false);
+          
+          for (unsigned short iFile = 0; iFile < config->GetnVolumeOutputFiles(); iFile++){
+            unsigned short *FileFormat = config->GetVolumeOutputFiles();
+            
+            if (FileFormat[iFile] == PARAVIEW) {
+              cout << "Writing a Paraview file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetParaview(geometry, iFFDBox, false);
+              }
+            } else if (FileFormat[iFile] == TECPLOT) {
+              cout << "Writing a Tecplot file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, false);
+              }
             }
-          }
-          else if (config->GetOutput_FileFormat() == TECPLOT) {
-            cout << "Writing a Tecplot file of the FFD boxes." << endl;
-            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-              FFDBox[iFFDBox]->SetTecplot(geometry, iFFDBox, false);
-            }
-          }
-          else {
-            cout << "Writing a CGNS file of the FFD boxes." << endl;
-            for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
-              FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, false);
+            else if (FileFormat[iFile] == CGNS)  {
+              cout << "Writing a CGNS file of the FFD boxes." << endl;
+              for (iFFDBox = 0; iFFDBox < GetnFFDBox(); iFFDBox++) {
+                FFDBox[iFFDBox]->SetCGNS(geometry, iFFDBox, false);
+              }
             }
           }
         }
-        
       }
     }
     
@@ -6347,7 +6359,7 @@ void CSurfaceMovement::SetBoundary_Flutter3D(CGeometry *geometry, CConfig *confi
   su2double time_new, time_old;
   su2double Omega[3], Ampl[3];
   su2double DEG2RAD = PI_NUMBER/180.0;
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
   unsigned short iDim = 0;
   
   /*--- Retrieve values from the config file ---*/
@@ -6441,7 +6453,7 @@ void CSurfaceMovement::SetExternal_Deformation(CGeometry *geometry, CConfig *con
   string DV_Filename, UnstExt, text_line;
   ifstream surface_positions;
   bool unsteady = config->GetTime_Marching();
-  bool adjoint = config->GetContinuous_Adjoint();
+  bool adjoint = (config->GetContinuous_Adjoint() || config->GetDiscrete_Adjoint());
   
   /*--- Load stuff from config ---*/
   

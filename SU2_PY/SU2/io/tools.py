@@ -91,11 +91,11 @@ def read_plot( filename ):
         title = line.split('=')[1] .strip() # not used right now
         line = plot_file.readline()
 
-    # process header
-    if '=' in line:
-        line = line.split("=")[1].strip()
+    if line.startswith('VARIABLES'):
+          line = plot_file.readline()
+
     line = line.split(",")
-    Variables = [ x.strip('" ') for x in line ]
+    Variables = [ x.strip().strip('"') for x in line ]
     n_Vars = len(Variables)
     
     # initialize plot data dictionary
@@ -708,29 +708,40 @@ def add_suffix(base_name,suffix):
 def get_dvMap():
     """ get dictionary that maps design variable 
         kind id number to name """
-    dv_map = { 1   : "HICKS_HENNE"           ,
-               2   : "SURFACE_BUMP"          ,
-               4   : "NACA_4DIGITS"          ,
-               5   : "TRANSLATION"           ,
-               6   : "ROTATION"              ,
-               7   : "FFD_CONTROL_POINT"     ,
-               8   : "FFD_DIHEDRAL_ANGLE"    ,
-               9   : "FFD_TWIST_ANGLE"       ,
-               10  : "FFD_ROTATION"          ,
-               11  : "FFD_CAMBER"            ,
-               12  : "FFD_THICKNESS"         ,
-               19  : "FFD_TWIST"             ,
-               22  : "FFD_NACELLE"           ,
-               23  : "FFD_GULL"              ,
-               25  : "FFD_ROTATION"          ,
-               15  : "FFD_CONTROL_POINT_2D"  ,
-               16  : "FFD_CAMBER_2D"         ,
-               17  : "FFD_THICKNESS_2D"      ,
-               20  : "FFD_TWIST_2D"          ,
-               50  : "CUSTOM"                ,
-               51  : "CST"                   ,
-               101 : "ANGLE_OF_ATTACK"       ,
-               102 : "FFD_ANGLE_OF_ATTACK"                    }
+    dv_map = { 0   : "NO_DEFORMATION"        ,
+               1   : "TRANSLATION"           ,
+               2   : "ROTATION"              ,
+               3   : "SCALE"                 ,
+               10  : "FFD_SETTING"           ,
+               11  : "FFD_CONTROL_POINT"     ,
+               12  : "FFD_NACELLE"           ,
+               13  : "FFD_GULL"              ,
+               14  : "FFD_CAMBER"            ,
+               15  : "FFD_TWIST"             ,
+               16  : "FFD_THICKNESS"         ,
+               18  : "FFD_ROTATION"          ,
+               19  : "FFD_CONTROL_POINT_2D"  ,
+               20  : "FFD_CAMBER_2D"         ,
+               21  : "FFD_THICKNESS_2D"      ,
+               22  : "FFD_TWIST_2D"          ,
+               23  : "FFD_CONTROL_SURFACE"   ,
+               24  : "FFD_ANGLE_OF_ATTACK"   ,
+               30  : "HICKS_HENNE"           ,
+               31  : "PARABOLIC"             ,
+               32  : "NACA_4DIGITS"          ,
+               33  : "AIRFOIL"               ,
+               34  : "CST"                   ,
+               35  : "SURFACE_BUMP"          ,
+               36  : "SURFACE_FILE"          ,
+               40  : "DV_EFIELD"             ,
+               41  : "DV_YOUNG"              ,
+               42  : "DV_POISSON"            ,
+               43  : "DV_RHO"                ,
+               44  : "DV_RHO_DL"             ,
+               50  : "TRANSLATE_GRID"        ,
+               51  : "ROTATE_GRID"           ,
+               52  : "SCALE_GRID"            ,
+               101 : "ANGLE_OF_ATTACK"       }
     
     return dv_map
 
@@ -774,9 +785,9 @@ def get_gradFileFormat(grad_type,plot_format,kindID,special_cases=[]):
     write_format = []
     
     # handle plot formating
-    if (plot_format == 'TECPLOT') or (plot_format == 'TECPLOT_BINARY'): 
+    if (plot_format == 'TECPLOT'): 
         header.append('VARIABLES=')
-    elif (plot_format == 'PARAVIEW') or (plot_format == 'PARAVIEW_BINARY'):
+    elif (plot_format == 'CSV'):
         pass
     else: raise Exception('output plot format not recognized')
     
@@ -900,9 +911,9 @@ def get_optFileFormat(plot_format,special_cases=None, nZones = 1):
     write_format  = []
     
     # handle plot formating
-    if (plot_format == 'TECPLOT') or (plot_format == 'TECPLOT_BINARY'): 
+    if (plot_format == 'TECPLOT'): 
         header_format = header_format + 'VARIABLES='
-    elif (plot_format == 'PARAVIEW') or (plot_format == 'PARAVIEW_BINARY'):
+    elif (plot_format == 'CSV'):
         pass
     else: raise Exception('output plot format not recognized')
 
@@ -958,11 +969,11 @@ def get_extension(output_format):
     if (output_format == "PARAVIEW")        : return ".csv"
     if (output_format == "PARAVIEW_BINARY") : return ".csv"
     if (output_format == "TECPLOT")         : return ".dat"
-    if (output_format == "TECPLOT_BINARY")  : return ".plt"
+    if (output_format == "TECPLOT_BINARY")  : return ".szplt"
     if (output_format == "SOLUTION")        : return ".dat"  
     if (output_format == "RESTART")         : return ".dat"  
     if (output_format == "CONFIG")          : return ".cfg"  
-
+    if (output_format == "CSV")         : return ".csv"
     # otherwise
     raise Exception("Output Format Unknown")
 
@@ -998,9 +1009,6 @@ def get_specialCases(config):
     if len(special_cases) > 1:
         error_str = 'Currently cannot support ' + ' and '.join(special_cases) + ' at once'
         raise Exception(error_str)   
-    
-    if (config['WRT_SOL_FREQ'] != 1) and ('WRT_UNSTEADY' in special_cases):
-        raise Exception('Must set WRT_SOL_FREQ= 1 for WRT_UNSTEADY= YES')
   
     # Special case for harmonic balance
     if 'TIME_MARCHING' in config and config['TIME_MARCHING'] == 'HARMONIC_BALANCE':
@@ -1161,7 +1169,16 @@ def restart2solution(config,state={}):
     if config.MATH_PROBLEM == 'DIRECT':
         restart  = config.RESTART_FILENAME
         solution = config.SOLUTION_FILENAME
+        restart = restart.split('.')[0]
+        solution = solution.split('.')[0]
         
+        if 'RESTART_ASCII' in config.get('OUTPUT_FILES', ['RESTART_BINARY']):
+            restart += '.csv'
+            solution += '.csv'
+        else:
+            restart += '.dat'
+            solution += '.dat'
+
         # expand zones
         restarts  = expand_zones(restart,config)
         solutions = expand_zones(solution,config)
@@ -1179,6 +1196,15 @@ def restart2solution(config,state={}):
     elif any([config.MATH_PROBLEM == 'CONTINUOUS_ADJOINT', config.MATH_PROBLEM == 'DISCRETE_ADJOINT']):
         restart  = config.RESTART_ADJ_FILENAME
         solution = config.SOLUTION_ADJ_FILENAME           
+        restart = restart.split('.')[0]
+        solution = solution.split('.')[0]
+
+        if 'RESTART_ASCII' in config.get('OUTPUT_FILES', ['RESTART_BINARY']):
+            restart += '.csv'
+            solution += '.csv'
+        else:
+            restart += '.dat'
+            solution += '.dat'
         # add suffix
         func_name = config.OBJECTIVE_FUNCTION
         suffix    = get_adjointSuffix(func_name)

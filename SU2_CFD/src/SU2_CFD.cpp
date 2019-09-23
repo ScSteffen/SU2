@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
   
   unsigned short nZone;
   char config_file_name[MAX_STRING_SIZE];
-  bool fsi, turbo, zone_specific;
+  bool fsi, turbo;
   bool dry_run = false;
   std::string filename = "default";
   
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
                                        "Only execute preprocessing steps using a dummy geometry.");
   app.add_option("configfile", filename, "A config file.")->check(CLI::ExistingFile);
   
-  CLI11_PARSE(app, argc, argv);
+  CLI11_PARSE(app, argc, argv)
   
   /*--- MPI initialization, and buffer setting ---*/
   
@@ -101,7 +101,6 @@ int main(int argc, char *argv[]) {
   nZone    = config->GetnZone();
   fsi      = config->GetFSI_Simulation();
   turbo    = config->GetBoolTurbomachinery();
-  zone_specific = config->GetBoolZoneSpecific();
 
   /*--- First, given the basic information about the number of zones and the
    solver types from the config, instantiate the appropriate driver for the problem
@@ -156,8 +155,6 @@ int main(int argc, char *argv[]) {
         driver = new CFSIDriver(config_file_name, nZone, MPICommunicator);
       }
       
-    } else if (zone_specific) {
-      driver = new CMultiphysicsZonalDriver(config_file_name, nZone, MPICommunicator);
     } else {
       
       /*--- Multi-zone problem: instantiate the multi-zone driver class by default
