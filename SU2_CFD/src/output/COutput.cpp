@@ -1490,27 +1490,26 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     }
     if (currentField.fieldType == TYPE_COEFFICIENT){
       if (config->GetTime_Domain()){
-      if(SetUpdate_Averages(config)){
-        SetHistoryOutputValue("TAVG_" + historyOutput_List[iField], runningAverages[historyOutput_List[iField]].Update(currentField.value));
-        runningAverages[historyOutput_List[iField]].addValue(currentField.value,config->GetTimeIter(), config->GetStartWindowIteration()); //Setting Start-Iteration for Windowing
-        SetHistoryOutputValue("SQ_WND_AVG_" + historyOutput_List[iField],     runningAverages[historyOutput_List[iField]].WindowedUpdate( 0));
-        SetHistoryOutputValue("HANN_WND_AVG_" + historyOutput_List[iField],   runningAverages[historyOutput_List[iField]].WindowedUpdate( 1));
-        SetHistoryOutputValue("HANNSQ_WND_AVG_" + historyOutput_List[iField], runningAverages[historyOutput_List[iField]].WindowedUpdate( 2));
-        SetHistoryOutputValue("BUMP_WND_AVG_" + historyOutput_List[iField],   runningAverages[historyOutput_List[iField]].WindowedUpdate( 3));
-      }
-      if (config->GetDirectDiff() != NO_DERIVATIVE){
-
-        SetHistoryOutputValue("D_TAVG_" + historyOutput_List[iField]            , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetVal()));
-        SetHistoryOutputValue("D_SQ_WND_AVG_" + historyOutput_List[iField]      , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(0)));
-        SetHistoryOutputValue("D_HANN_WND_AVG_" + historyOutput_List[iField]    , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(1)));
-        SetHistoryOutputValue("D_HANNSQ_WND_AVG_" + historyOutput_List[iField]  , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(2)));
-        SetHistoryOutputValue("D_BUMP_WND_AVG_" + historyOutput_List[iField]    , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(3)));
-      }
+        if(SetUpdate_Averages(config)){
+          SetHistoryOutputValue("TAVG_" + historyOutput_List[iField], runningAverages[historyOutput_List[iField]].Update(currentField.value));
+          runningAverages[historyOutput_List[iField]].addValue(currentField.value,config->GetTimeIter(), config->GetStartWindowIteration()); //Setting Start-Iteration for Windowing
+          SetHistoryOutputValue("SQ_WND_AVG_" + historyOutput_List[iField],     runningAverages[historyOutput_List[iField]].WindowedUpdate( 0));
+          SetHistoryOutputValue("HANN_WND_AVG_" + historyOutput_List[iField],   runningAverages[historyOutput_List[iField]].WindowedUpdate( 1));
+          SetHistoryOutputValue("HANNSQ_WND_AVG_" + historyOutput_List[iField], runningAverages[historyOutput_List[iField]].WindowedUpdate( 2));
+          SetHistoryOutputValue("BUMP_WND_AVG_" + historyOutput_List[iField],   runningAverages[historyOutput_List[iField]].WindowedUpdate( 3));
+        }
+        if (config->GetDirectDiff() != NO_DERIVATIVE){
+          SetHistoryOutputValue("D_TAVG_" + historyOutput_List[iField]            , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetVal()));
+          SetHistoryOutputValue("D_SQ_WND_AVG_" + historyOutput_List[iField]      , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(0)));
+          SetHistoryOutputValue("D_HANN_WND_AVG_" + historyOutput_List[iField]    , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(1)));
+          SetHistoryOutputValue("D_HANNSQ_WND_AVG_" + historyOutput_List[iField]  , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(2)));
+          SetHistoryOutputValue("D_BUMP_WND_AVG_" + historyOutput_List[iField]    , SU2_TYPE::GetDerivative(runningAverages[historyOutput_List[iField]].GetWndVal(3)));
+        }
+       }
+       if (config->GetDirectDiff() != NO_DERIVATIVE){
+         SetHistoryOutputValue("D_" + historyOutput_List[iField], SU2_TYPE::GetDerivative(currentField.value));
+       }
     }
-    if (config->GetDirectDiff() != NO_DERIVATIVE){
-        SetHistoryOutputValue("D_" + historyOutput_List[iField], SU2_TYPE::GetDerivative(currentField.value));
-    }
-}
   }
   
   map<string, su2double>::iterator it = Average.begin();
@@ -1539,17 +1538,19 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
     AddHistoryOutput("AVG_" + it->first, "avg[" + AverageGroupName[it->first] + "]", FORMAT_FIXED,
                      "AVG_" + it->first , "Average residual over all solution variables.", TYPE_AUTO_RESIDUAL);
   }  
+
   if (config->GetTime_Domain()){
-   for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
-    HistoryOutputField &currentField = historyOutput_Map[historyOutput_List[iField]];
-    if (currentField.fieldType == TYPE_COEFFICIENT){
-      AddHistoryOutput("TAVG_"   + historyOutput_List[iField], "tavg["  + currentField.fieldName + "]", currentField.screenFormat, "TAVG_"   + currentField.outputGroup, "Time averaged values.", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("SQ_WND_AVG_" + historyOutput_List[iField]       , "sq_wnd_avg[" + currentField.fieldName + "]"      , currentField.screenFormat, "SQ_WND_AVG_" + currentField.outputGroup, "Time averaged square window weighted values.", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("HANN_WND_AVG_" + historyOutput_List[iField]     , "hann_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "HANN_WND_AVG_" + currentField.outputGroup, "Time averaged hann window weighted values.", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("HANNSQ_WND_AVG_" + historyOutput_List[iField]   , "hannSq_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "HANNSQ_WND_AVG_" + currentField.outputGroup, "Time averaged hann-square window weighted values.", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("BUMP_WND_AVG_" + historyOutput_List[iField]     , "bump_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "BUMP_WND_AVG_" + currentField.outputGroup, "Time averaged bump window weighted values.", TYPE_AUTO_COEFFICIENT);
+    for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
+      HistoryOutputField &currentField = historyOutput_Map[historyOutput_List[iField]];
+      if (currentField.fieldType == TYPE_COEFFICIENT){
+        AddHistoryOutput("TAVG_"   + historyOutput_List[iField], "tavg["  + currentField.fieldName + "]", currentField.screenFormat, "TAVG_"   + currentField.outputGroup, "Time averaged values.", TYPE_AUTO_COEFFICIENT);
+        AddHistoryOutput("SQ_WND_AVG_" + historyOutput_List[iField]       , "sq_wnd_avg[" + currentField.fieldName + "]"      , currentField.screenFormat, "SQ_WND_AVG_" + currentField.outputGroup, "Time averaged square window weighted values.", TYPE_AUTO_COEFFICIENT);
+        AddHistoryOutput("HANN_WND_AVG_" + historyOutput_List[iField]     , "hann_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "HANN_WND_AVG_" + currentField.outputGroup, "Time averaged hann window weighted values.", TYPE_AUTO_COEFFICIENT);
+        AddHistoryOutput("HANNSQ_WND_AVG_" + historyOutput_List[iField]   , "hannSq_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "HANNSQ_WND_AVG_" + currentField.outputGroup, "Time averaged hann-square window weighted values.", TYPE_AUTO_COEFFICIENT);
+        AddHistoryOutput("BUMP_WND_AVG_" + historyOutput_List[iField]     , "bump_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "BUMP_WND_AVG_" + currentField.outputGroup, "Time averaged bump window weighted values.", TYPE_AUTO_COEFFICIENT);
+      }
     }
-  }}
+  }
   
   if (config->GetDirectDiff()){
     for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
@@ -1562,22 +1563,22 @@ void COutput::Postprocess_HistoryFields(CConfig *config){
     }
   }
   
-if (config->GetTime_Domain() && config->GetDirectDiff()){
-  for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
-    HistoryOutputField &currentField = historyOutput_Map[historyOutput_List[iField]];
-    if (currentField.fieldType == TYPE_COEFFICIENT){
-      AddHistoryOutput("D_TAVG_" + historyOutput_List[iField], "dtavg[" + currentField.fieldName + "]", currentField.screenFormat, "D_TAVG_" + currentField.outputGroup, "Derivative of the time averaged value (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("D_SQ_WND_AVG_" + historyOutput_List[iField]     , "d_sq_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "D_SQ_WND_AVG_" + currentField.outputGroup, "Time averaged square window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("D_HANN_WND_AVG_" + historyOutput_List[iField]   , "d_hann_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "D_HANN_WND_AVG_" + currentField.outputGroup, "Time averaged hann window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("D_HANNSQ_WND_AVG_" + historyOutput_List[iField] , "d_hannsq_wnd_avg[" + currentField.fieldName + "]", currentField.screenFormat, "D_HANNSQ_WND_AVG_" + currentField.outputGroup, "Time averaged hann-square window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
-      AddHistoryOutput("D_BUMP_WND_AVG_" + historyOutput_List[iField]   , "d_bump_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "D_BUMP_WND_AVG_" + currentField.outputGroup, "Time averaged bump window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
-    }
-  }
+ if (config->GetTime_Domain() && config->GetDirectDiff()){
+   for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
+     HistoryOutputField &currentField = historyOutput_Map[historyOutput_List[iField]];
+     if (currentField.fieldType == TYPE_COEFFICIENT){
+       AddHistoryOutput("D_TAVG_" + historyOutput_List[iField], "dtavg[" + currentField.fieldName + "]", currentField.screenFormat, "D_TAVG_" + currentField.outputGroup, "Derivative of the time averaged value (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
+       AddHistoryOutput("D_SQ_WND_AVG_" + historyOutput_List[iField]     , "d_sq_wnd_avg[" + currentField.fieldName + "]"    , currentField.screenFormat, "D_SQ_WND_AVG_" + currentField.outputGroup, "Time averaged square window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
+       AddHistoryOutput("D_HANN_WND_AVG_" + historyOutput_List[iField]   , "d_hann_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "D_HANN_WND_AVG_" + currentField.outputGroup, "Time averaged hann window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
+       AddHistoryOutput("D_HANNSQ_WND_AVG_" + historyOutput_List[iField] , "d_hannsq_wnd_avg[" + currentField.fieldName + "]", currentField.screenFormat, "D_HANNSQ_WND_AVG_" + currentField.outputGroup, "Time averaged hann-square window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
+       AddHistoryOutput("D_BUMP_WND_AVG_" + historyOutput_List[iField]   , "d_bump_wnd_avg[" + currentField.fieldName + "]"  , currentField.screenFormat, "D_BUMP_WND_AVG_" + currentField.outputGroup, "Time averaged bump window weighted values (DIRECT_DIFF=YES).", TYPE_AUTO_COEFFICIENT);
+     }
+   }
  }
-//if (historyOutput_Map[convField].fieldType == TYPE_COEFFICIENT){
-  AddHistoryOutput("CAUCHY", "C["  + historyOutput_Map[convField].fieldName + "]", FORMAT_SCIENTIFIC, "CAUCHY","Cauchy residual value of field set with CONV_FIELD." ,TYPE_AUTO_COEFFICIENT);
-  AddHistoryOutput("TIME_WND_CAUCHY", "t_wnd_C[" + historyOutput_Map[config->GetWndConv_Field()].fieldName+ "]", FORMAT_SCIENTIFIC, "TIME_WND_CAUCHY", "Cauchy residual value of field set with WND_CONV_FIELD.", TYPE_AUTO_COEFFICIENT);
-//}
+ if (historyOutput_Map[convField].fieldType == TYPE_COEFFICIENT){
+   AddHistoryOutput("CAUCHY", "C["  + historyOutput_Map[convField].fieldName + "]", FORMAT_SCIENTIFIC, "CAUCHY","Cauchy residual value of field set with CONV_FIELD." ,TYPE_AUTO_COEFFICIENT);
+ }
+ AddHistoryOutput("TIME_WND_CAUCHY", "t_wnd_C[" + historyOutput_Map[config->GetWndConv_Field()].fieldName+ "]", FORMAT_SCIENTIFIC, "TIME_WND_CAUCHY", "Cauchy residual value of field set with WND_CONV_FIELD.", TYPE_AUTO_COEFFICIENT);
 
 }
 

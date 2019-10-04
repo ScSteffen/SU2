@@ -39,7 +39,7 @@
 #  Imports
 # ----------------------------------------------------------------------
 
-import copy, os, SU2, sys
+import copy
 
 from .. import io  as su2io
 from .merge     import merge     as su2merge

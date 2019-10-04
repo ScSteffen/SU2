@@ -637,8 +637,7 @@ bool CFlowIncOutput::SetInit_Residuals(CConfig *config){
 }
 
 bool CFlowIncOutput::SetUpdate_Averages(CConfig *config){
-  //return false;
-  
-  return (config->GetTime_Marching() != STEADY) && (config->GetInnerIter() == config->GetnInner_Iter()-1);
+  return false;
+  //return (config->GetTime_Marching() != STEADY) && (config->GetInnerIter() == config->GetnInner_Iter()-1);
       
 }

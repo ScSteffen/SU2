@@ -46,8 +46,8 @@
  * \version 6.0.1 "Falcon"
  */
 class CSinglezoneDriver : public CDriver {
-
-    unsigned long TimeIter;
+protected:
+    unsigned long TimeIter; // Redeclaration of CDriver:TimeIter. Sense behind this?
 public:
 
   /*!

@@ -38,7 +38,7 @@ namespace Signal_Processing {
         }
     }
 
-    /*! \brief Returns the value of a windowing function given by fctIdx at time CurTime with given TimeSpan (i.e. timeSpan=end-time, if one starts witz 0.) */
+    /*! \brief Returns the value of a windowing function given by fctIdx at time CurTime with given TimeSpan (i.e. timeSpan=end-time, if one starts  windowing at time t =0.) */
     su2double GetWndWeight(int fctIdx, su2double CurTime, su2double TimeSpan){
         switch (fctIdx){
           case 1: return HannWindow(CurTime, TimeSpan);
@@ -74,11 +74,11 @@ namespace Signal_Processing {
             default: noWndAvgVal    = NoWindowing();          return noWndAvgVal;
           }
       }
-        return 0.0;
+      return 0.0;
     }
 
   private:
-    //Using Midpoint rule for consistentcy with adjoint solve
+    //Using Midpoint rule for consistentcy with adjoint solver
     su2double NoWindowing(){
       su2double wnd_timeAvg = 0.0;
       for(unsigned i=0; i<values.size(); i++){
