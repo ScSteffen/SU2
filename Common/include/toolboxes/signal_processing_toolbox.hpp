@@ -38,12 +38,12 @@ namespace Signal_Processing {
         }
     }
 
-    /*! \brief Returns the value of a windowing function given by fctIdx at time CurTime with given TimeSpan (i.e. timeSpan=end-time, if one starts  windowing at time t =0.) */
-    su2double GetWndWeight(int fctIdx, su2double CurTime, su2double TimeSpan){
+    /*! \brief Returns the value of a windowing function given by fctIdx at CurTimeIdx with given endTimeIdx (i.e. endTimeIdx=nTimeIter, if one starts  windowing at time t =0.) */
+    su2double GetWndWeight(int fctIdx, unsigned long CurTimeIdx, unsigned long endTimeIdx){
         switch (fctIdx){
-          case 1: return HannWindow(CurTime, TimeSpan);
-          case 2: return HannSquaredWindow(CurTime, TimeSpan);
-          case 3: return BumpWindow(CurTime, TimeSpan);
+          case 1: return HannWindow(CurTimeIdx, endTimeIdx);
+          case 2: return HannSquaredWindow(CurTimeIdx, endTimeIdx);
+          case 3: return BumpWindow(CurTimeIdx, endTimeIdx);
           default:return 1.0;
         }
     }
@@ -81,7 +81,7 @@ namespace Signal_Processing {
     //Using Midpoint rule for consistentcy with adjoint solver
     su2double NoWindowing(){
       su2double wnd_timeAvg = 0.0;
-      for(unsigned i=0; i<values.size(); i++){
+      for(unsigned long i=0; i<values.size(); i++){
           wnd_timeAvg+=values[i];
         }
       return wnd_timeAvg/static_cast<su2double>(values.size());
@@ -89,43 +89,50 @@ namespace Signal_Processing {
 
     su2double HannWindowing(){
       su2double wnd_timeAvg = 0.0;
-      su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size(); i++){
-          wnd_timeAvg+=values[i]*HannWindow(static_cast<su2double>(i), endTime);
+      for(unsigned long i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*HannWindow(i,values.size()-1);
       }
       return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double HannSquaredWindowing(){
       su2double wnd_timeAvg = 0.0;
-      su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size(); i++){
-          wnd_timeAvg+=values[i]*HannSquaredWindow(static_cast<su2double>(i),endTime);
+      for(unsigned long i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*HannSquaredWindow(i,values.size()-1);
         }
       return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
     su2double BumpWindowing(){
       su2double wnd_timeAvg = 0.0;
-      su2double endTime = static_cast<su2double>(values.size());
-      for(unsigned i=0; i<values.size(); i++){
-          wnd_timeAvg+=values[i]*BumpWindow(static_cast<su2double>(i),endTime);
+      for(unsigned long i=0; i<values.size(); i++){
+          wnd_timeAvg+=values[i]*BumpWindow(i,values.size()-1);
         }
       return wnd_timeAvg/static_cast<su2double>(values.size());
     }
 
-    su2double HannWindow(su2double i, su2double endTime){
-      return 1.0-cos(2*PI_NUMBER*i/endTime);
+    su2double HannWindow(unsigned long i, unsigned long endTimeIdx){
+      if(i==0) return 0; //catch div by zero error
+      su2double currTime = static_cast<su2double>(i);
+      su2double endTime = static_cast<su2double>(endTimeIdx);
+      su2double tau = currTime/endTime;
+      return 1.0-cos(2*PI_NUMBER*tau);
     }
 
-    su2double HannSquaredWindow(su2double i, su2double endTime){
-     return 2.0/3.0*(1-cos(2*PI_NUMBER*i/endTime))*(1-cos(2*PI_NUMBER*i/endTime));
+    su2double HannSquaredWindow(unsigned long i, unsigned long endTimeIdx){
+      if(i==0) return 0; //catch div by zero error
+      su2double currTime = static_cast<su2double>(i);
+      su2double endTime = static_cast<su2double>(endTimeIdx);
+      su2double tau = currTime/endTime;
+      return 2.0/3.0*(1-cos(2*PI_NUMBER*tau))*(1-cos(2*PI_NUMBER*tau));
     }
 
-    su2double BumpWindow(su2double i, su2double endTime){
-      if(i==0.0) return 0;
-      if(i==1.0) return 0;
-      su2double tau = i/endTime;
+    su2double BumpWindow(unsigned long i, unsigned long endTimeIdx){
+      if(i==0) return 0;
+      if(i==endTimeIdx) return 0;
+      su2double currTime = static_cast<su2double>(i);
+      su2double endTime = static_cast<su2double>(endTimeIdx);
+      su2double tau = currTime/endTime;
       return 1.0/0.00702986*(exp(-1/(tau-tau*tau)));
     }
   };
