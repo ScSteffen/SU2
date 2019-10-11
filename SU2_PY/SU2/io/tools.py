@@ -583,39 +583,6 @@ def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_av
 
     return Func_Values
 
-def wnd_avg_sum(wnd_fct, values):
-    result = 0.0
-    if wnd_fct == 'HANN':
-        for i in range(0,len(values)-1):
-            result += hann_wnd(i,len(values)-1)
-    elif wnd_fct == 'HANN_SQUARE':
-        for i in range(0,len(values)-1):
-            result += hannSq_wnd(i,len(values)-1)
-    elif wnd_fct == 'BUMP':
-        for i in range(0,len(values)-1):
-            result += bump_wnd(i,len(values)-1)
-    return result
-
-def bump_wnd(currIdx, endIdx):
-    if currIdx == 0:
-        return 0.0
-    if currIdx == endIdx:
-        return 0.0
-    tau = float(currIdx)/float(endIdx)
-    return 1.0/0.00702986*math.exp(-1/(tau-tau*tau))
-
-def hann_wnd(currIdx, endIdx):
-    if currIdx == 0:
-        return 0.0
-    tau = float(currIdx)/float(endIdx)
-    return 1.0-math.cos(2*math.pi*tau)
-
-def hannSq_wnd(currIdx, endIdx):
-    if currIdx == 0:
-        return 0.0
-    tau = float(currIdx)/float(endIdx)
-    return 2.0/3.0*(1-math.cos(2*math.pi*tau))*(1-math.cos(2*math.pi*tau))
-
 #: def read_aerodynamics()
 
 # -------------------------------------------------------------------
