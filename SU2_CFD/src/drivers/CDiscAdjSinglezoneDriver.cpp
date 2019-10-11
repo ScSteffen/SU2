@@ -276,13 +276,6 @@ void CDiscAdjSinglezoneDriver::SetAdj_ObjFunction(){
   if (time_stepping){
     if (TimeIter < IterAvg_Obj){
       seeding = windowEvaluator.GetWndWeight(config->GetWindowIdx(),TimeIter, IterAvg_Obj-1)/ (static_cast<su2double>(IterAvg_Obj));
-      if(rank==0){
-
-          cout << "IterAvg_Obj: " << IterAvg_Obj << endl;
-          cout << "TimeIter: " << TimeIter << endl;
-          cout << "config->GetWindowIdx(): " << config->GetWindowIdx() << endl;
-          cout << "seeding: " << seeding << endl;
-      }
     }
     else{
       seeding = 0.0;

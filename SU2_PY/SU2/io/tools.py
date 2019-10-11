@@ -39,7 +39,7 @@
 #  Imports
 # -------------------------------------------------------------------
 
-import os
+import os, math
 import shutil, glob
 from SU2.util import ordered_bunch
 
@@ -262,9 +262,17 @@ def get_headerMap(nZones = 1):
                  "D(Momentum_Distortion)"       : "D_SURFACE_MOM_DISTORTION"        ,
                  "D(Secondary_Over_Uniformity)" : "D_SURFACE_SECOND_OVER_UNIFORM"   ,
                  "D(Pressure_Drop)"             : "D_SURFACE_PRESSURE_DROP"         ,
-                 "bump_wnd_avg[CL]"             : "WND_LIFT"                        ,
-                 "bump_wnd_avg[CD]"             : "WND_DRAG"                         ,
-                 "bump_wnd_avg[CEff]"           : "WND_EFFICIENCY"}
+                 "bump_wnd_avg[CD]" : "WND_DRAG" ,
+                 "bump_wnd_avg[CL]" : "WND_LIFT" ,
+                 "bump_wnd_avg[CSF]": "WND_SIDEFORCE",
+                 "bump_wnd_avg[CMx]": "WND_MOMENT_X",
+                 "bump_wnd_avg[CMy]": "WND_MOMENT_Y",
+                 "bump_wnd_avg[CMz]": "WND_MOMENT_Z",
+                 "bump_wnd_avg[CFx]": "WND_FORCE_X",
+                 "bump_wnd_avg[CFy]": "WND_FORCE_Y",
+                 "bump_wnd_avg[CFz]": "WND_FORCE_Z",
+                 "bump_wnd_avg[CEff]":"WND_EFFICIENCY"
+                 }
  
     return history_header_map        
 
@@ -316,10 +324,22 @@ optnames_aero = [ "LIFT"                        ,
                   "TOTAL_HEATFLUX"              ,
                   "MAXIMUM_HEATFLUX"            ,
                   "CUSTOM_OBJFUNC"              ,
-                  "COMBO"                       ,
-                  "WND_LIFT"                    ,
-                  "WND_DRAG"                    ,
-                  "WND_EFFICIENCY"]
+                  "COMBO"
+                  ]
+
+wnd_optnames_aero = [
+                  "WND_LIFT"                        ,
+                  "WND_DRAG"                        ,
+                  "WND_SIDEFORCE"                   ,
+                  "WND_MOMENT_X"                    ,
+                  "WND_MOMENT_Y"                    ,
+                  "WND_MOMENT_Z"                    ,
+                  "WND_FORCE_X"                     ,
+                  "WND_FORCE_Y"                     ,
+                  "WND_FORCE_Z"                     ,
+                  "WND_EFFICIENCY"
+                ]
+
 
 # Turbo performance optimizer Function Names
 optnames_turbo = ["TOTAL_PRESSURE_LOSS"     ,
@@ -511,7 +531,7 @@ def update_persurface(config, state):
 #  Read Aerodynamic Function Values from History File
 # -------------------------------------------------------------------
 
-def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_avg=0 ):
+def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_avg=0, wnd_fct = 'SQUARE' ):
     """ values = read_aerodynamics(historyname, special_cases=[])
         read aerodynamic function values from history file
         
@@ -531,31 +551,72 @@ def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_av
     Func_Values = ordered_bunch()
     for this_objfun in func_names:
         if this_objfun in history_data:
-            Func_Values[this_objfun] = history_data[this_objfun] 
-    
+            Func_Values[this_objfun] = history_data[this_objfun]
+
     # for unsteady cases, average time-accurate objective function values
-    if 'TIME_MARCHING' in special_cases and not final_avg:
-        for key,value in Func_Values.items():
-            Func_Values[key] = sum(value)/len(value)
-         
-    # average the final iterations   
-    elif final_avg:
-        for key,value in Func_Values.iteritems():
-            # only the last few iterations
-            i_fin = min([final_avg,len(value)])
-            value = value[-i_fin:]
-            Func_Values[key] = sum(value)/len(value)
-    
-    # otherwise, keep only last value
+    if wnd_fct != 'SQUARE':
+        for key, value in Func_Values.items():
+            Func_Values[key] = history_data['WND_'+ key][-1]
     else:
-        for key,value in Func_Values.iteritems():
-            Func_Values[key] = value[-1]
-                    
+        if 'TIME_MARCHING' in special_cases and not final_avg:
+            for key,value in Func_Values.items():
+                if wnd_fct != 'SQUARE':
+                    Func_Values[key] = history_data['WND_'+ key][-1]
+                else:
+                    Func_Values[key] = sum(value)/len(value)
+
+        # average the final iterations.
+        elif final_avg:
+            for key,value in Func_Values.iteritems():
+                # only the last few iterations
+                if key.startswith('WND'):
+                    Func_Values[key] = value[-1]
+                else:
+                    i_fin = min([final_avg,len(value)])
+                    value = value[-i_fin:]
+                    Func_Values[key] = sum(value) / len(value)
+
+        # otherwise, keep only last value
+        else:
+            for key,value in Func_Values.iteritems():
+                Func_Values[key] = value[-1]
+
     return Func_Values
-    
+
+def wnd_avg_sum(wnd_fct, values):
+    result = 0.0
+    if wnd_fct == 'HANN':
+        for i in range(0,len(values)-1):
+            result += hann_wnd(i,len(values)-1)
+    elif wnd_fct == 'HANN_SQUARE':
+        for i in range(0,len(values)-1):
+            result += hannSq_wnd(i,len(values)-1)
+    elif wnd_fct == 'BUMP':
+        for i in range(0,len(values)-1):
+            result += bump_wnd(i,len(values)-1)
+    return result
+
+def bump_wnd(currIdx, endIdx):
+    if currIdx == 0:
+        return 0.0
+    if currIdx == endIdx:
+        return 0.0
+    tau = float(currIdx)/float(endIdx)
+    return 1.0/0.00702986*math.exp(-1/(tau-tau*tau))
+
+def hann_wnd(currIdx, endIdx):
+    if currIdx == 0:
+        return 0.0
+    tau = float(currIdx)/float(endIdx)
+    return 1.0-math.cos(2*math.pi*tau)
+
+def hannSq_wnd(currIdx, endIdx):
+    if currIdx == 0:
+        return 0.0
+    tau = float(currIdx)/float(endIdx)
+    return 2.0/3.0*(1-math.cos(2*math.pi*tau))*(1-math.cos(2*math.pi*tau))
+
 #: def read_aerodynamics()
-
-
 
 # -------------------------------------------------------------------
 #  Get Objective Function Sign
