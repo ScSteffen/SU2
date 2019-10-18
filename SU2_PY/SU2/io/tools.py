@@ -271,7 +271,17 @@ def get_headerMap(nZones = 1):
                  "bump_wnd_avg[CFx]": "WND_FORCE_X",
                  "bump_wnd_avg[CFy]": "WND_FORCE_Y",
                  "bump_wnd_avg[CFz]": "WND_FORCE_Z",
-                 "bump_wnd_avg[CEff]":"WND_EFFICIENCY"
+                 "bump_wnd_avg[CEff]":"WND_EFFICIENCY",
+                 "d_bump_wnd_avg[CD]": "WND_D_DRAG",
+                 "d_bump_wnd_avg[CL]": "WND_D_LIFT",
+                 "d_bump_wnd_avg[CSF]": "WND_D_SIDEFORCE",
+                 "d_bump_wnd_avg[CMx]": "WND_D_MOMENT_X",
+                 "d_bump_wnd_avg[CMy]": "WND_D_MOMENT_Y",
+                 "d_bump_wnd_avg[CMz]": "WND_D_MOMENT_Z",
+                 "d_bump_wnd_avg[CFx]": "WND_D_FORCE_X",
+                 "d_bump_wnd_avg[CFy]": "WND_D_FORCE_Y",
+                 "d_bump_wnd_avg[CFz]": "WND_D_FORCE_Z",
+                 "d_bump_wnd_avg[CEff]": "WND_D_EFFICIENCY"
                  }
  
     return history_header_map        
@@ -328,16 +338,26 @@ optnames_aero = [ "LIFT"                        ,
                   ]
 
 wnd_optnames_aero = [
-                  "WND_LIFT"                        ,
-                  "WND_DRAG"                        ,
-                  "WND_SIDEFORCE"                   ,
-                  "WND_MOMENT_X"                    ,
-                  "WND_MOMENT_Y"                    ,
-                  "WND_MOMENT_Z"                    ,
-                  "WND_FORCE_X"                     ,
-                  "WND_FORCE_Y"                     ,
-                  "WND_FORCE_Z"                     ,
-                  "WND_EFFICIENCY"
+                  "WND_LIFT"                    ,
+                  "WND_DRAG"                    ,
+                  "WND_SIDEFORCE"               ,
+                  "WND_MOMENT_X"                ,
+                  "WND_MOMENT_Y"                ,
+                  "WND_MOMENT_Z"                ,
+                  "WND_FORCE_X"                 ,
+                  "WND_FORCE_Y"                 ,
+                  "WND_FORCE_Z"                 ,
+                  "WND_EFFICIENCY"              ,
+                  "WND_D_DRAG"                  ,
+                  "WND_D_LIFT"                  ,
+                  "WND_D_SIDEFORCE"             ,
+                  "WND_D_MOMENT_X"              ,
+                  "WND_D_MOMENT_Y"              ,
+                  "WND_D_MOMENT_Z"              ,
+                  "WND_D_FORCE_X"               ,
+                  "WND_D_FORCE_Y"               ,
+                  "WND_D_FORCE_Z"               ,
+                  "WND_D_EFFICIENCY"
                 ]
 
 
@@ -554,15 +574,13 @@ def read_aerodynamics( History_filename , nZones = 1, special_cases=[], final_av
             Func_Values[this_objfun] = history_data[this_objfun]
 
     # for unsteady cases, average time-accurate objective function values
-    if wnd_fct != 'SQUARE':
+    if wnd_fct != 'SQUARE': # Currently only supported for some optnames_aero that are also contained in wnd_optnames_aero
         for key, value in Func_Values.items():
-            Func_Values[key] = history_data['WND_'+ key][-1]
+            if key in wnd_optnames_aero:
+                Func_Values[key] = history_data['WND_'+ key][-1]
     else:
         if 'TIME_MARCHING' in special_cases and not final_avg:
             for key,value in Func_Values.items():
-                if wnd_fct != 'SQUARE':
-                    Func_Values[key] = history_data['WND_'+ key][-1]
-                else:
                     Func_Values[key] = sum(value)/len(value)
 
         # average the final iterations.
