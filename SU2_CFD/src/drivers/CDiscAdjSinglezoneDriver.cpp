@@ -160,7 +160,6 @@ void CDiscAdjSinglezoneDriver::Run() {
 
     config->SetInnerIter(Adjoint_Iter);
 
-
     iteration->InitializeAdjoint(solver_container, geometry_container, config_container, ZONE_0, INST_0);
 
     /*--- Initialize the adjoint of the objective function with 1.0. ---*/

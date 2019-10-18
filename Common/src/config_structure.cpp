@@ -1497,7 +1497,6 @@ void CConfig::SetConfig_Options() {
   /*!\brief CONV_CRITERIA
    *  \n DESCRIPTION: Convergence criteria \n OPTIONS: see \link Converge_Crit_Map \endlink \n DEFAULT: RESIDUAL \ingroup Config*/
   addEnumOption("CONV_CRITERIA", ConvCriteria, Converge_Crit_Map, RESIDUAL);
-
   /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
   /*!\brief CONV_STARTITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
@@ -1522,7 +1521,7 @@ void CConfig::SetConfig_Options() {
    * \n DESCRIPTION: Flow functional for the Cauchy criterium for the TIME iteration. The criterium is applied to the windowed time average of the chosen funcion. */
   addStringOption("WND_CONV_FIELD", WndConvField, "");
 
-  addStringOption("CONV_FIELD", ConvField, "");
+ addStringListOption("CONV_FIELD", nConvField, ConvField);
 
   /*!\par CONFIG_CATEGORY: Multi-grid \ingroup Config*/
   /*--- Options related to Multi-grid ---*/
@@ -2486,6 +2485,9 @@ void CConfig::SetConfig_Options() {
   
   /* DESCRIPTION: Multipoint design for outlet quantities (varying back pressure or mass flow operating points). */
   addPythonOption("MULTIPOINT_OUTLET_VALUE");
+
+  /* DESCRIPTION: Multipoint mesh filenames, if using different meshes for each point */
+  addPythonOption("MULTIPOINT_MESH_FILENAME");
 
   /*--- options that are used for the output ---*/
   /*!\par CONFIG_CATEGORY:Output Options\ingroup Config*/
@@ -5225,7 +5227,6 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
   if (DiscreteAdjoint) {
      cout <<"Discrete Adjoint equations using Algorithmic Differentiation " << endl;
      cout <<"based on the physical case: ";
-
   }
     switch (Kind_Solver) {
       case EULER: case DISC_ADJ_EULER: case FEM_EULER: case DISC_ADJ_FEM_EULER:
@@ -7520,7 +7521,7 @@ string CConfig::GetFilename(string filename, string ext, unsigned long Iter){
   return filename;
 }
 
-string CConfig::GetUnsteady_FileName(string val_filename, long val_iter, string ext) {
+string CConfig::GetUnsteady_FileName(string val_filename, int val_iter, string ext) {
 
   string UnstExt="", UnstFilename = val_filename;
   char buffer[50];
@@ -8106,6 +8107,16 @@ unsigned short CConfig::GetMarker_Moving(string val_marker) {
     if (Marker_Moving[iMarker_Moving] == val_marker) break;
 
   return iMarker_Moving;
+}
+
+bool CConfig::GetMarker_Moving_Bool(string val_marker) {
+  unsigned short iMarker_Moving;
+
+  /*--- Find the marker for this moving boundary, if it exists. ---*/
+  for (iMarker_Moving = 0; iMarker_Moving < nMarker_Moving; iMarker_Moving++)
+    if (Marker_Moving[iMarker_Moving] == val_marker) return true;
+
+  return false;
 }
 
 unsigned short CConfig::GetMarker_Deform_Mesh(string val_marker) {
